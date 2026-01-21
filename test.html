@@ -1,0 +1,13 @@
+<!doctype html>
+<html>
+  <body>
+    <h3>QR Test</h3>
+    <img id="qr" />
+    <script type="module">
+      import { qr_png_data_url } from "./index.js";
+
+      const src = await qr_png_data_url("hello wrapper", 320, 4, "Q");
+      document.getElementById("qr").src = src;
+    </script>
+  </body>
+</html>
