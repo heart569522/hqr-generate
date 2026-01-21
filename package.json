@@ -1,0 +1,34 @@
+{
+  "name": "hqr-generate",
+  "version": "0.1.0",
+  "description": "Stable black/white QR code generator (PNG data URL) powered by Rust + WASM",
+  "type": "module",
+  "files": [
+    "pkg/**",
+    "index.js",
+    "index.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./index.js",
+  "module": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "scripts": {
+    "build": "wasm-pack build --target bundler",
+    "clean": "rm -rf pkg",
+    "prepack": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "qrcode",
+    "qr",
+    "wasm",
+    "rust"
+  ],
+  "license": "MIT"
+}

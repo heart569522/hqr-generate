@@ -3,6 +3,7 @@ import initWasm, {
 } from "./pkg/hqr_generate.js";
 
 let _initPromise;
+
 async function ensureInit() {
   if (!_initPromise) _initPromise = initWasm();
   await _initPromise;
