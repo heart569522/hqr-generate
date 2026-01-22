@@ -1,6 +1,17 @@
-import type { QrEcc } from "../index";
+export type QrEcc = "L" | "M" | "Q" | "H";
 
-export declare function useQrCode(
+export interface UseQrPngOptions {
+  size?: number;
+  margin?: number;
+  ecc?: QrEcc;
+}
+
+export declare function useQrPngDataUrl(
   text: string,
-  opts?: { size?: number; margin?: number; ecc?: QrEcc }
+  opts?: UseQrPngOptions
+): string;
+
+export declare function useQrPngBlobUrl(
+  text: string,
+  opts?: UseQrPngOptions
 ): string;

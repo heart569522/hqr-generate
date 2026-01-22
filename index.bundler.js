@@ -1,5 +1,6 @@
 import init, {
   qr_png_data_url as _qr_png_data_url,
+  qr_png_bytes as _qr_png_bytes,
 } from "./pkg/bundler/hqr_generate.js";
 
 let _initPromise;
@@ -12,4 +13,9 @@ async function ensureInit() {
 export async function qr_png_data_url(text, size = 320, margin = 4, ecc = "Q") {
   await ensureInit();
   return _qr_png_data_url(text, size, margin, ecc);
+}
+
+export async function qr_png_bytes(text, size = 320, margin = 4, ecc = "Q") {
+  await ensureInit();
+  return _qr_png_bytes(text, size, margin, ecc);
 }

@@ -1,6 +1,6 @@
 {
   "name": "@wirunrom/hqr-generate",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Stable black/white QR code generator (PNG data URL) powered by Rust + WASM",
   "type": "module",
   "files": [
