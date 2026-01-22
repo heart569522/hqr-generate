@@ -1,30 +1,49 @@
 {
   "name": "@wirunrom/hqr-generate",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Stable black/white QR code generator (PNG data URL) powered by Rust + WASM",
   "type": "module",
   "files": [
     "pkg/**",
-    "index.browser.js",
-    "index.node.js",
+    "index.web.js",
+    "index.bundler.js",
     "index.d.ts",
+    "react/**",
+    "bundler/**",
     "README.md",
     "LICENSE"
   ],
-  "main": "./index.node.js",
-  "module": "./index.browser.js",
+  "main": "./index.web.js",
+  "module": "./index.web.js",
   "types": "./index.d.ts",
   "exports": {
     ".": {
       "types": "./index.d.ts",
-      "browser": "./index.browser.js",
-      "default": "./index.node.js"
+      "default": "./index.web.js"
+    },
+    "./bundler": {
+      "types": "./index.d.ts",
+      "default": "./index.bundler.js"
+    },
+    "./react": {
+      "types": "./react/index.d.ts",
+      "default": "./react/index.js"
+    },
+    "./bundler/react": {
+      "types": "./bundler/react.d.ts",
+      "default": "./bundler/react.js"
     }
   },
+  "peerDependencies": {
+    "react": ">=17",
+    "react-dom": ">=17"
+  },
   "scripts": {
-    "build": "wasm-pack build --target bundler",
     "clean": "rm -rf pkg",
-    "prepack": "npm run clean && npm run build && rm -f pkg/.gitignore",
+    "build:web": "wasm-pack build --target web --out-dir pkg/web",
+    "build:bundler": "wasm-pack build --target bundler --out-dir pkg/bundler",
+    "build": "npm run build:web && npm run build:bundler",
+    "prepack": "npm run clean && npm run build && rm -f pkg/web/.gitignore pkg/bundler/.gitignore",
     "publish:npm": "npm publish --registry=https://registry.npmjs.org --access public",
     "publish:github": "npm publish --registry=https://npm.pkg.github.com --userconfig .npmrc.github --access public"
   },
