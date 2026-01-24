@@ -15,3 +15,11 @@ export declare function useQrPngBlobUrl(
   text: string,
   opts?: UseQrPngOptions
 ): string;
+
+export declare function useQrDecodeFromImage(
+  image: ImageData | null
+): {
+  text: string | null;
+  error: unknown | null;
+  loading: boolean;
+};

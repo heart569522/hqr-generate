@@ -1,7 +1,7 @@
 {
   "name": "@wirunrom/hqr-generate",
-  "version": "0.2.23",
-  "description": "Stable black/white QR code generator (PNG data URL) powered by Rust + WASM",
+  "version": "0.3.0",
+  "description": "High-performance QR code generator and decoder powered by Rust + WASM",
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -45,8 +45,8 @@
   },
   "scripts": {
     "clean": "rm -rf pkg",
-    "build:web": "wasm-pack build --target web --out-dir pkg/web",
-    "build:bundler": "wasm-pack build --target bundler --out-dir pkg/bundler",
+    "build:web": "wasm-pack build --target web --out-dir pkg/web -- --features wasm,decode",
+    "build:bundler": "wasm-pack build --target bundler --out-dir pkg/bundler -- --features wasm,decode",
     "build": "npm run build:web && npm run build:bundler",
     "prepack": "npm run clean && npm run build && rm -f pkg/web/.gitignore pkg/bundler/.gitignore",
     "publish:npm": "npm publish --registry=https://registry.npmjs.org --access public",
@@ -55,6 +55,8 @@
   "keywords": [
     "qrcode",
     "qr",
+    "qr-decode",
+    "qr-scanner",
     "rust",
     "wasm",
     "react",

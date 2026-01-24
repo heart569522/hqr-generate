@@ -20,3 +20,10 @@ export declare function qr_png_bytes(
   margin?: number,
   ecc?: QrEcc
 ): Promise<Uint8Array>;
+
+/**
+ * Decode QR from browser ImageData
+ */
+export function qr_decode_from_image(
+  image: ImageData
+): Promise<string>;

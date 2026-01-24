@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { qr_png_data_url, qr_png_bytes } from "../index.bundler.js";
+import {
+  qr_png_data_url,
+  qr_png_bytes,
+  qr_decode_from_image,
+} from "../index.bundler.js";
 
 export function useQrPngDataUrl(text, opts) {
   const size = opts?.size ?? 320;
@@ -70,4 +74,43 @@ export function useQrPngBlobUrl(text, opts) {
   }, [text, size, margin, ecc]);
 
   return src;
+}
+
+export function useQrDecodeFromImage(image) {
+  const [text, setText] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+
+    if (!image) {
+      setText(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    qr_decode_from_image(image)
+      .then((res) => {
+        if (!alive) return;
+        setText(res);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setText(null);
+        setError(err);
+        setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [image]);
+
+  return { text, error, loading };
 }
