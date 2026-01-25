@@ -148,7 +148,7 @@ Use this entry when working with static HTML, CDN, or environments without a bun
   import {
     qr_png_bytes,
     qr_png_data_url,
-    qr_decode_from_image_data,
+    qr_decode_from_image,
   } from "@wirunrom/hqr-generate/web";
 
   const src = await qr_png_data_url("hello world", 320, 4, "Q");
@@ -159,7 +159,7 @@ Use this entry when working with static HTML, CDN, or environments without a bun
   const ctx = canvas.getContext("2d");
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-  const text = await qr_decode_from_image_data(imageData);
+  const text = await qr_decode_from_image(imageData);
   console.log(text);
 </script>
 
