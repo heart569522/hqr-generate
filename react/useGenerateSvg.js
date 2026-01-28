@@ -3,18 +3,26 @@ import { useEffect, useState } from "react";
 import { generate_svg } from "../index.web.js";
 export function useGenerateSvg(text, opts) {
     const [svg, setSvg] = useState(null);
-    const [error, setError] = useState(null);
+    const [src, setSrc] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
     useEffect(() => {
         if (!text)
             return;
         let cancelled = false;
+        let objectUrl = null;
         (async () => {
             try {
                 setLoading(true);
-                const result = await generate_svg(text, opts);
-                if (!cancelled)
-                    setSvg(result);
+                const markup = await generate_svg(text, opts);
+                if (cancelled)
+                    return;
+                setSvg(markup);
+                const blob = new Blob([markup], {
+                    type: "image/svg+xml",
+                });
+                objectUrl = URL.createObjectURL(blob);
+                setSrc(objectUrl);
             }
             catch (e) {
                 if (!cancelled)
@@ -27,7 +35,14 @@ export function useGenerateSvg(text, opts) {
         })();
         return () => {
             cancelled = true;
+            if (objectUrl)
+                URL.revokeObjectURL(objectUrl);
         };
     }, [text, opts]);
-    return { svg, error, loading };
+    return {
+        svg,
+        src,
+        loading,
+        error,
+    };
 }

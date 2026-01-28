@@ -178,6 +178,59 @@ export default function ClientQr({ bytes }: { bytes: Uint8Array }) {
 
 ---
 
+## Generate QR Code (SVG)
+
+If you want to generate a QR code as **SVG** in React,
+use the `useGenerateSvg` hook from the `/react` entry.
+
+This hook:
+
+- Calls the core `generate_svg()` API
+- Converts SVG markup into a `Blob URL`
+- Returns a `src` that can be used directly in `<img />`
+- Automatically handles cleanup (`URL.revokeObjectURL`)
+
+### Example
+
+```tsx
+"use client";
+
+import { useGenerateSvg } from "@wirunrom/hqr-generate/react";
+
+export default function QrSvg() {
+  const { src, loading } = useGenerateSvg("hello svg", {
+    size: 320,
+    ecc: "Q",
+  });
+
+  if (loading) return <p>Loading…</p>;
+
+  return src && <img src={src} alt="QR Code (SVG)" />;
+}
+```
+
+---
+
+### Returned Values
+
+```ts
+const {
+  src, // string | null  (Blob URL for <img>)
+  svg, // string | null  (raw SVG markup)
+  loading,
+  error,
+} = useGenerateSvg(text, options);
+```
+
+### Design Notes
+
+- SVG generation is **data-first** at the core level
+- Rendering decisions are handled in the React hook
+- `src` is provided for convenience and safety
+- Advanced users can use `svg` to render inline SVG manually if needed
+
+---
+
 ## Decode QR Code (Client-side)
 
 To decode a QR code in the browser,
