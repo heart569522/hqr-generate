@@ -1,6 +1,6 @@
 {
   "name": "@wirunrom/hqr-generate",
-  "version": "0.4.1-next.5",
+  "version": "0.4.1-next.6",
   "description": "High-performance QR code generator and decoder powered by Rust + WASM",
   "license": "MIT",
   "type": "module",
