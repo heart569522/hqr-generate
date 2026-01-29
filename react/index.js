@@ -1,3 +1,3 @@
-export { useGenerate } from "./useGenerate";
-export { useGenerateSvg } from "./useGenerateSvg";
-export { useDecode } from "./useDecode";
+export { useGenerate } from "./useGenerate.js";
+export { useGenerateSvg } from "./useGenerateSvg.js";
+export { useDecode } from "./useDecode.js";

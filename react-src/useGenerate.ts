@@ -8,17 +8,14 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   if (bytes.buffer instanceof ArrayBuffer) {
     return bytes.buffer.slice(
       bytes.byteOffset,
-      bytes.byteOffset + bytes.byteLength
+      bytes.byteOffset + bytes.byteLength,
     );
   }
 
   return Uint8Array.from(bytes).buffer;
 }
 
-export function useGenerate(
-  text?: string,
-  opts?: GenerateOptions
-) {
+export function useGenerate(text?: string, opts?: GenerateOptions) {
   const [bytes, setBytes] = useState<Uint8Array | null>(null);
   const [src, setSrc] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
