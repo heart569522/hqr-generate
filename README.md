@@ -450,3 +450,9 @@ No framework or build tool is required.
 
 > Keep data binary.
 > Convert only at the UI boundary.
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md)
