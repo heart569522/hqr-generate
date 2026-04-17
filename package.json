@@ -6,7 +6,7 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/wirunrom/hqr-generate.git"
+    "url": "git+https://github.com/wirunrom/hqr-generate.git"
   },
   "homepage": "https://github.com/wirunrom/hqr-generate#readme",
   "files": [
