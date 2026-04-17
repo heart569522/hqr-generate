@@ -6,10 +6,10 @@ pub mod error;
 // Render QR bitmap into concrete formats (png/svg/...)
 pub mod render;
 
-pub use core::generate::generate_qr_bitmap;
+pub use core::generate::{generate_qr_bitmap, generate_qr_modules, rasterize};
 
-pub use render::png::render_png;
-pub use render::svg::render_svg;
+pub use render::png::{render_png, render_png_modules};
+pub use render::svg::{render_svg, render_svg_modules};
 
 #[cfg(feature = "decode")]
 pub use core::decode;

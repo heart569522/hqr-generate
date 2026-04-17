@@ -8,9 +8,9 @@ use wasm_bindgen::prelude::*;
 #[cfg(feature = "decode")]
 use js_sys::Reflect;
 
-use crate::core::generate::generate_qr_bitmap;
-use crate::render::png::render_png;
-use crate::render::svg::render_svg;
+use crate::core::generate::generate_qr_modules;
+use crate::render::png::render_png_modules;
+use crate::render::svg::render_svg_modules;
 
 #[cfg(feature = "decode")]
 use crate::core::decode::decode as core_decode;
@@ -29,8 +29,9 @@ fn js_err<E: core::fmt::Debug>(e: E) -> JsValue {
 
 #[wasm_bindgen]
 pub fn generate(text: &str, size: u32, margin: u32, ecc: u8) -> Result<Uint8Array, JsValue> {
-    let bitmap = generate_qr_bitmap(text, size, margin, ecc).map_err(js_err)?;
-    let bytes = render_png(&bitmap).map_err(js_err)?;
+    // Module-level → 1-bit PNG path: no 8-bit scaled bitmap allocated.
+    let modules = generate_qr_modules(text, size, margin, ecc).map_err(js_err)?;
+    let bytes = render_png_modules(&modules).map_err(js_err)?;
     Ok(Uint8Array::from(bytes.as_slice()))
 }
 
@@ -41,8 +42,9 @@ pub fn generate_png(text: &str, size: u32, margin: u32, ecc: u8) -> Result<Uint8
 
 #[wasm_bindgen]
 pub fn generate_svg(text: &str, size: u32, margin: u32, ecc: u8) -> Result<String, JsValue> {
-    let bitmap = generate_qr_bitmap(text, size, margin, ecc).map_err(js_err)?;
-    Ok(render_svg(&bitmap))
+    // Module-level path: no scaled pixel buffer allocated.
+    let modules = generate_qr_modules(text, size, margin, ecc).map_err(js_err)?;
+    Ok(render_svg_modules(&modules))
 }
 
 // ---------- decode (Uint8Array | ImageData) ----------

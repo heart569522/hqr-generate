@@ -6,6 +6,10 @@ export function useGenerateSvg(text, opts) {
     const [src, setSrc] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    // Primitive deps so inline `opts` objects don't re-trigger WASM every render.
+    const size = opts?.size;
+    const margin = opts?.margin;
+    const ecc = opts?.ecc;
     useEffect(() => {
         if (!text)
             return;
@@ -14,7 +18,7 @@ export function useGenerateSvg(text, opts) {
         (async () => {
             try {
                 setLoading(true);
-                const markup = await generate_svg(text, opts);
+                const markup = await generate_svg(text, { size, margin, ecc });
                 if (cancelled)
                     return;
                 setSvg(markup);
@@ -38,7 +42,7 @@ export function useGenerateSvg(text, opts) {
             if (objectUrl)
                 URL.revokeObjectURL(objectUrl);
         };
-    }, [text, opts]);
+    }, [text, size, margin, ecc]);
     return {
         svg,
         src,
