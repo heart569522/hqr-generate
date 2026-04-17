@@ -12,6 +12,14 @@ async function ensureInit() {
   return _initPromise;
 }
 
+const ECC_MAP = { L: 0, M: 1, Q: 2, H: 3 };
+
+function normalizeOpts(opts) {
+  const { size = 320, margin = 4, ecc = "Q" } = opts ?? {};
+  const eccCode = ECC_MAP[ecc] ?? 2;
+  return [size, margin, eccCode];
+}
+
 /**
  * Default QR generator (PNG, fastest)
  *
@@ -21,7 +29,7 @@ async function ensureInit() {
  */
 export async function generate(text, opts) {
   await ensureInit();
-  return _generate_png(text, opts.size, opts.margin, opts.ecc);
+  return _generate_png(text, ...normalizeOpts(opts));
 }
 
 /**
@@ -29,7 +37,7 @@ export async function generate(text, opts) {
  */
 export async function generate_png(text, opts) {
   await ensureInit();
-  return _generate_png(text, opts.size, opts.margin, opts.ecc);
+  return _generate_png(text, ...normalizeOpts(opts));
 }
 
 /**
@@ -37,7 +45,7 @@ export async function generate_png(text, opts) {
  */
 export async function generate_svg(text, opts) {
   await ensureInit();
-  return _generate_svg(text, opts.size, opts.margin, opts.ecc);
+  return _generate_svg(text, ...normalizeOpts(opts));
 }
 
 /**

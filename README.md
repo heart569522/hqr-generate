@@ -1,50 +1,33 @@
 # @wirunrom/hqr-generate
 
-A high-performance **QR Code generator and decoder**
-focused on **maximum scan reliability** and a **binary-first design**,
-powered by **Rust + WebAssembly (WASM)**.
+Fast, scan-reliable **QR code generator and decoder** powered by **Rust + WebAssembly**.
 
-This library intentionally keeps its core **simple, fast, and environment-agnostic**.
-
----
-
-## Design Philosophy
-
-This library follows a **byte-first architecture**:
-
-- Core APIs always return **raw binary (`Uint8Array`)**
-- No Base64 or Data URL generation in the core
-- Rendering is handled at the **UI / presentation layer**
-- Works consistently across:
-  - Browser
-  - React
-  - Next.js (Client & Server Components)
-  - Node.js (SSR / API routes)
-
-This design ensures:
-
-- Better performance
-- Lower memory usage
-- Clean separation between data and presentation
-- Predictable behavior across environments
+Binary-first: core APIs return raw `Uint8Array` (PNG) or `string` (SVG). Rendering and Blob conversion are handled at the UI layer, so the library works identically in the browser, React, Next.js (App Router / SSR / Route Handlers), and Node.js.
 
 ---
 
 ## Features
 
-- High-contrast **black & white only** QR codes  
-  (scan reliability first)
-- Deterministic and consistent output
-- **Raw PNG bytes (`Uint8Array`)** generation
-- **SVG output** for resolution-independent rendering
-- QR decoding from:
-  - `Uint8Array`
-  - Browser `ImageData`
-- Optimized for:
-  - React
-  - Next.js (App Router & SSR)
-  - Plain HTML / JavaScript
-- Lightweight and fast (Rust + WASM)
+- High-contrast **black & white only** — scan reliability first
+- **1-bit grayscale PNG** output — tiny payloads
+- **SVG** emitted as a single compact `<path>` — resolution-independent
+- QR **decoding** from `Uint8Array` or browser `ImageData`
+- Optional React hooks (`react` is an optional peer dep)
+
+---
+
+## Performance
+
+Sub-millisecond end-to-end generation on modern hardware. Benchmarked on Apple Silicon (release + LTO) for a typical URL payload at `size: 320`:
+
+| Pipeline                  | Time   | Output size |
+| ------------------------- | ------ | ----------- |
+| `generate` → 1-bit PNG    | ~96 µs | ~5.5 KB     |
+| `generate_svg` → `<path>` | ~90 µs | ~5.2 KB     |
+
+Behind the numbers: QR encoding via [`fast_qr`](https://crates.io/crates/fast_qr), direct rasterization into a 1-bit PNG buffer (no 8-bit intermediate), run-length-merged SVG subpaths with relative commands, and React hooks that track primitive option fields so inline `opts` don't re-trigger WASM on every render.
+
+Run the suite locally with `cargo bench --bench generate`.
 
 ---
 
@@ -52,21 +35,20 @@ This design ensures:
 
 ```bash
 npm i @wirunrom/hqr-generate
-# or
-yarn add @wirunrom/hqr-generate
-# or
-pnpm i @wirunrom/hqr-generate
+# or: yarn add / pnpm i
 ```
 
-## API Reference
+---
 
-| Function                       | Parameters                                    | Returns                           |
-| ------------------------------ | --------------------------------------------- | --------------------------------- |
-| `generate(text, options?)`     | `text: string`<br>`options?: GenerateOptions` | `Promise<Uint8Array>` (PNG bytes) |
-| `generate_svg(text, options?)` | `text: string`<br>`options?: GenerateOptions` | `Promise<string>` (SVG markup)    |
-| `decode(input)`                | `input: Uint8Array \| ImageData`              | `Promise<string>` (decoded text)  |
+## API
 
-### GenerateOptions
+| Function                       | Parameters                                    | Returns                     |
+| ------------------------------ | --------------------------------------------- | --------------------------- |
+| `generate(text, options?)`     | `text: string`, `options?: GenerateOptions`   | `Promise<Uint8Array>` (PNG) |
+| `generate_svg(text, options?)` | `text: string`, `options?: GenerateOptions`   | `Promise<string>` (SVG)     |
+| `decode(input)`                | `input: Uint8Array \| ImageData`              | `Promise<string>`           |
+
+### `GenerateOptions`
 
 | Option   | Type                       | Default | Description                   |
 | -------- | -------------------------- | ------- | ----------------------------- |
@@ -74,60 +56,44 @@ pnpm i @wirunrom/hqr-generate
 | `margin` | `number`                   | `4`     | Quiet zone / margin (modules) |
 | `ecc`    | `'L' \| 'M' \| 'Q' \| 'H'` | `'Q'`   | Error correction level        |
 
-### Notes
-
-- All generate APIs return **raw data**, not Base64 or Data URLs.
-- PNG output is returned as **binary bytes (`Uint8Array`)**.
-- SVG output is returned as **plain string markup**.
+PNG output is raw bytes (`Uint8Array`), SVG output is plain markup (`string`). No Base64 or Data URL wrapping.
 
 ---
 
-## Client-side Usage (Recommended)
+## Usage
 
-When rendering QR codes in the browser or a Client Component,
-use the React hook provided by the `/react` entry.
+### React (client-side)
 
-The hook automatically:
-
-- Calls the core API
-- Converts binary data to a `Blob URL`
-- Handles cleanup (`URL.revokeObjectURL`)
+The `/react` entry provides hooks that call the core API, wrap the result in a `Blob URL`, and revoke it on cleanup.
 
 ```tsx
 "use client";
+import { useGenerate, useGenerateSvg } from "@wirunrom/hqr-generate/react";
 
-import { useGenerate } from "@wirunrom/hqr-generate/react";
-
-export default function QR() {
-  const { src, loading } = useGenerate("hello world", {
-    size: 320,
-    ecc: "Q",
-  });
-
+export function PngQr() {
+  const { src, loading } = useGenerate("hello world", { size: 320, ecc: "Q" });
   if (loading) return <p>Loading…</p>;
-  return <img src={src ?? ""} alt="QR Code" />;
+  return <img src={src ?? ""} alt="QR" />;
+}
+
+export function SvgQr() {
+  const { src, svg, loading } = useGenerateSvg("hello svg", { size: 320 });
+  if (loading) return <p>Loading…</p>;
+  return <img src={src ?? ""} alt="QR" />; // or render `svg` inline
 }
 ```
 
-Internally, the hook performs:
+Both hooks return `{ src, bytes|svg, loading, error }`.
 
-```
-Uint8Array → Blob → blob: URL
-```
+### Next.js SSR / Route Handlers
 
----
-
-## Next.js SSR / Route Handlers
-
-When generating QR codes on the server,
-the API returns raw PNG bytes.
+Return the raw PNG bytes directly — no Base64.
 
 ```ts
 import { generate } from "@wirunrom/hqr-generate";
 
 export async function GET() {
   const bytes = await generate("hello ssr");
-
   return new Response(bytes, {
     headers: {
       "Content-Type": "image/png",
@@ -137,326 +103,63 @@ export async function GET() {
 }
 ```
 
-No Base64 conversion is required.
-
----
-
-## SSR → Client Rendering
-
-If you generate QR codes on the server
-but render them on the client:
-
-1. Generate bytes on the server
-2. Convert bytes to a `Blob` on the client
+To generate on the server and render on the client, pass bytes to a client component and convert to a `Blob URL` there:
 
 ```tsx
-// Server Component
-import { generate } from "@wirunrom/hqr-generate";
-import ClientQr from "./ClientQr";
-
-export default async function Page() {
-  const bytes = await generate("hello ssr");
-  return <ClientQr bytes={bytes} />;
-}
-```
-
-```tsx
-// Client Component
+// ClientQr.tsx
 "use client";
-
 import { useEffect, useState } from "react";
 
 export default function ClientQr({ bytes }: { bytes: Uint8Array }) {
-  const [src, setSrc] = useState<string>("");
-
+  const [src, setSrc] = useState("");
   useEffect(() => {
-    const blob = new Blob([bytes], { type: "image/png" });
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
     setSrc(url);
     return () => URL.revokeObjectURL(url);
   }, [bytes]);
-
-  return <img src={src} alt="QR Code" />;
+  return <img src={src} alt="QR" />;
 }
 ```
 
----
-
-## Generate QR Code (SVG)
-
-If you want to generate a QR code as **SVG** in React,
-use the `useGenerateSvg` hook from the `/react` entry.
-
-This hook:
-
-- Calls the core `generate_svg()` API
-- Converts SVG markup into a `Blob URL`
-- Returns a `src` that can be used directly in `<img />`
-- Automatically handles cleanup (`URL.revokeObjectURL`)
-
-### Example
+### Decoding
 
 ```tsx
 "use client";
-
-import { useGenerateSvg } from "@wirunrom/hqr-generate/react";
-
-export default function QrSvg() {
-  const { src, loading } = useGenerateSvg("hello svg", {
-    size: 320,
-    ecc: "Q",
-  });
-
-  if (loading) return <p>Loading…</p>;
-
-  return src && <img src={src} alt="QR Code (SVG)" />;
-}
-```
-
----
-
-### Returned Values
-
-```ts
-const {
-  src, // string | null  (Blob URL for <img>)
-  svg, // string | null  (raw SVG markup)
-  loading,
-  error,
-} = useGenerateSvg(text, options);
-```
-
-### Design Notes
-
-- SVG generation is **data-first** at the core level
-- Rendering decisions are handled in the React hook
-- `src` is provided for convenience and safety
-- Advanced users can use `svg` to render inline SVG manually if needed
-
----
-
-## Decode QR Code (Client-side)
-
-To decode a QR code in the browser,
-use the `useDecode` hook from the `/react` entry.
-
-> ⚠️ `useDecode` accepts **ImageData only**
-> If you have PNG bytes or an image URL, convert them to `ImageData` first using Canvas APIs.
-
-### Example (decode from Canvas ImageData)
-
-```tsx
-"use client";
-
 import { useDecode } from "@wirunrom/hqr-generate/react";
 
 export default function DecodeQr({ imageData }: { imageData: ImageData }) {
   const { text, loading, error } = useDecode(imageData);
-
   if (loading) return <p>Decoding…</p>;
   if (error) return <p>Failed to decode</p>;
-
-  return <p>Decoded text: {text}</p>;
+  return <p>{text}</p>;
 }
 ```
 
----
+`useDecode` accepts **`ImageData` only**. If you have PNG bytes or a URL, draw them to a canvas first and call `ctx.getImageData(...)`. The core `decode()` also accepts raw `Uint8Array` (PNG/JPG/WebP) — use that for server-side decoding.
 
-## `useDecode` API Reference
+### Vanilla JS
 
-### Signature
-
-```ts
-function useDecode(input?: ImageData): {
-  text: string | null;
-  loading: boolean;
-  error: unknown | null;
-};
-```
-
-### Parameters
-
-| Name    | Type                   | Description                                                          |
-| ------- | ---------------------- | -------------------------------------------------------------------- |
-| `input` | `ImageData` (optional) | Image data containing a QR code. Decoding is skipped if `undefined`. |
-
-### Returns
-
-| Field     | Type              | Description                                   |
-| --------- | ----------------- | --------------------------------------------- |
-| `text`    | `string \| null`  | Decoded QR text, or `null` if not decoded yet |
-| `loading` | `boolean`         | `true` while decoding is in progress          |
-| `error`   | `unknown \| null` | Error object if decoding fails                |
-
----
-
-### Design Notes
-
-- `useDecode` is **browser-only**
-- It does **not** perform:
-  - image loading
-  - network requests
-  - Base64 conversion
-
-- This keeps decoding:
-  - predictable
-  - side-effect free
-  - consistent with the binary-first core API
-
-If you have an image URL or PNG bytes,
-convert them to `ImageData` explicitly before calling `useDecode`.
-
----
-
-## Plain HTML / Vanilla JavaScript Usage
-
-The library can be used directly in **plain HTML** using ES Modules.
-No framework or build tool is required.
-
-> Note: The example assumes you are serving files over HTTP
-> (do not open the file via `file://`), because WASM requires HTTP.
-
----
-
-### Generate QR Code (PNG)
+ES modules over HTTP (WASM won't load from `file://`):
 
 ```html
-<!doctype html>
-<html lang="en">
-  <body>
-    <h3>Generate PNG QR</h3>
+<script type="module">
+  import { generate, generate_svg, decode } from "https://esm.sh/@wirunrom/hqr-generate";
 
-    <input id="text" value="hello world" />
-    <button id="btn">Generate</button>
+  // PNG
+  const bytes = await generate("hello", { size: 256 });
+  const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+  document.querySelector("img").src = url;
 
-    <br /><br />
-    <img id="img" />
+  // SVG
+  document.querySelector("#svg").innerHTML = await generate_svg("hello");
 
-    <script type="module">
-      import { generate } from "https://esm.sh/@wirunrom/hqr-generate";
-
-      const btn = document.getElementById("btn");
-      const img = document.getElementById("img");
-      const input = document.getElementById("text");
-
-      btn.onclick = async () => {
-        const bytes = await generate(input.value, {
-          size: 256,
-          ecc: "Q",
-        });
-
-        const blob = new Blob([bytes], { type: "image/png" });
-        const url = URL.createObjectURL(blob);
-        img.src = url;
-      };
-    </script>
-  </body>
-</html>
+  // Decode (from a canvas ImageData or raw PNG/JPG Uint8Array)
+  // const text = await decode(imageData);
+</script>
 ```
-
----
-
-### Generate QR Code (SVG)
-
-```html
-<!doctype html>
-<html lang="en">
-  <body>
-    <h3>Generate SVG QR</h3>
-
-    <input id="text" value="hello world" />
-    <button id="btn">Generate</button>
-
-    <br /><br />
-    <div id="svg"></div>
-
-    <script type="module">
-      import { generate_svg } from "https://esm.sh/@wirunrom/hqr-generate";
-
-      const btn = document.getElementById("btn");
-      const input = document.getElementById("text");
-      const container = document.getElementById("svg");
-
-      btn.onclick = async () => {
-        const svg = await generate_svg(input.value, {
-          size: 256,
-          ecc: "Q",
-        });
-
-        container.innerHTML = svg;
-      };
-    </script>
-  </body>
-</html>
-```
-
----
-
-### Decode QR Code
-
-```html
-<!doctype html>
-<html lang="en">
-  <body>
-    <h3>Decode QR</h3>
-
-    <input type="file" id="file" accept="image/*" />
-    <p id="result"></p>
-
-    <script type="module">
-      import { decode } from "https://esm.sh/@wirunrom/hqr-generate";
-
-      const fileInput = document.getElementById("file");
-      const result = document.getElementById("result");
-
-      fileInput.onchange = async () => {
-        const file = fileInput.files?.[0];
-        if (!file) return;
-
-        const img = new Image();
-        img.src = URL.createObjectURL(file);
-
-        img.onload = async () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width;
-          canvas.height = img.height;
-
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0);
-
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const text = await decode(imageData);
-
-          result.textContent = `Decoded text: ${text}`;
-        };
-      };
-    </script>
-  </body>
-</html>
-```
-
----
-
-## What This Library Does NOT Do
-
-- ❌ No Base64 or Data URL generation in the core
-- ❌ No JPG / WebP / GIF rendering
-- ❌ No DOM or framework-specific logic outside `/react`
-
----
-
-## Summary
-
-- Core → returns `Uint8Array`
-- React hooks → handle `Blob` conversion
-- SSR → returns raw bytes or `Response`
-- Client → renders via `blob:` URL
-
-> Keep data binary.
-> Convert only at the UI boundary.
 
 ---
 
 ## Changelog
 
-See [CHANGELOG.md](./CHANGELOG.md)
+See [CHANGELOG.md](./CHANGELOG.md).
