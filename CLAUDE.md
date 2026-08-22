@@ -25,7 +25,9 @@ Rust-only workflow (no wasm toolchain needed):
 
 `tests/browser.html` is the browser smoke test for the local build (serve over HTTP; WASM won't load from `file://`). It covers the scanner by stubbing `getUserMedia` with `canvas.captureStream()` — a real `MediaStream`, so the whole pump/decode/dedupe path runs without a camera. `tests/test.html` points at the published CDN build. `tests/my-app/` is a manual Next.js app.
 
-Publishing: tag-triggered via `.github/workflows/publish.yml` (npm provenance). Pushing a `v*` tag builds, tests, checks the size budget, verifies the tag matches `package.json`, publishes to npm, and then creates the GitHub release.
+Publishing: tag-triggered via `.github/workflows/publish.yml`, authenticated by **OIDC trusted publishing** — there is no `NPM_TOKEN` secret, and there should never be one. npmjs.com is configured to trust this repo plus the workflow filename, so **renaming `publish.yml` breaks publishing** until the trusted publisher is updated to match. Provenance comes with it. Pushing a `v*` tag builds, tests, checks the size budget, verifies the tag matches `package.json`, publishes to npm, and then creates the GitHub release.
+
+CI and publish both run Node 24: npm 11.5.1+ is what trusted publishing needs, and the publish job re-checks that at runtime rather than trusting the runner image.
 
 **Before tagging a release, write `.github/release-notes/vX.Y.Z.md`.** Its `# ` heading becomes the release title and the rest becomes the body; without it the workflow falls back to auto-generated notes and says so in a warning. Links in that file must be absolute and pinned to the tag — GitHub does not resolve relative links in release bodies. Manual escape hatches: `publish:npm`, `publish:github`, `release:test`.
 

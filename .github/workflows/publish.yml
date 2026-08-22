@@ -11,15 +11,29 @@ jobs:
     permissions:
       # Needed to create the GitHub release.
       contents: write
-      # Required for npm provenance attestation.
+      # The OIDC token npm exchanges for publish rights. This is what replaces
+      # a stored NPM_TOKEN — nothing long-lived exists to leak or rotate.
       id-token: write
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # 24 ships npm 11, which is where trusted publishing lives.
+          node-version: 24
           registry-url: https://registry.npmjs.org
+
+      # Belt and braces: if a future runner image ships an older npm, publishing
+      # would quietly fall back to looking for a token that no longer exists.
+      - name: Ensure npm can do trusted publishing
+        run: |
+          need=11.5.1
+          have="$(npm --version)"
+          if [ "$(printf '%s\n%s\n' "$need" "$have" | sort -V | head -1)" != "$need" ]; then
+            echo "npm $have predates trusted publishing (needs $need) — upgrading"
+            npm install -g npm@latest
+          fi
+          echo "npm $(npm --version)"
 
       - name: Install wasm toolchain
         run: rustup target add wasm32-unknown-unknown
@@ -46,10 +60,10 @@ jobs:
             exit 1
           fi
 
+      # Authenticated by OIDC, configured as a trusted publisher on npmjs.com
+      # against this repo and this workflow filename. No secret is involved.
       - name: Publish to npm
         id: publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           version="$(node -p "require('./package.json').version")"
 
@@ -64,9 +78,10 @@ jobs:
 
           # --ignore-scripts publishes exactly the tree the steps above built,
           # size-checked and tested. Without it `prepack` would wipe pkg/ and
-          # rebuild, so the tarball would not be the one that was verified — and
-          # `postpublish` would try to push from the runner's detached HEAD and
-          # fail the step after the package was already live.
+          # rebuild, so the tarball would not be the one that was verified.
+          #
+          # Trusted publishing attaches provenance on its own; --provenance is
+          # kept so the intent is visible in the log.
           npm publish --access public --provenance --tag "$dist_tag" --ignore-scripts
 
       # Runs only after npm accepted the package, so a failed publish never
