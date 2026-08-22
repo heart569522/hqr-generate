@@ -1,60 +1,133 @@
+// Browser / bundler entry (ESM).
+//
+// Two WASM modules ship in this package. The encoder (~177 KB, ~84 KB gzipped)
+// is loaded by `ready()` or the first `generate*` call; the decoder (~721 KB)
+// is a separate module that is only fetched if you actually call `decode`.
+// Pages that just render QR codes never pay for the decoder.
+
 import init, {
-  generate_png as _generate_png,
-  generate_svg as _generate_svg,
-  decode as _decode,
+  generate_png as _png,
+  generate_svg as _svg,
+  generate_modules as _modules,
+  generate_many_png as _manyPng,
 } from "./pkg/web/hqr_generate.js";
 
-let _initPromise;
+import { logoHref, normalizeOpts } from "./internal/options.js";
 
-/** @returns {Promise<void>} */
-async function ensureInit() {
-  _initPromise ??= init();
-  return _initPromise;
+let _encoderReady;
+let _decoderReady;
+
+function ensureEncoder() {
+  return (_encoderReady ??= init());
 }
 
-const ECC_MAP = { L: 0, M: 1, Q: 2, H: 3 };
-
-function normalizeOpts(opts) {
-  const { size = 320, margin = 4, ecc = "Q" } = opts ?? {};
-  const eccCode = ECC_MAP[ecc] ?? 2;
-  return [size, margin, eccCode];
+function ensureDecoder() {
+  return (_decoderReady ??= import("./pkg/web-decode/hqr_generate.js").then(async (mod) => {
+    await mod.default();
+    return mod;
+  }));
 }
 
 /**
- * Default QR generator (PNG, fastest)
+ * Warm the WASM modules up front so the first render is not the one that pays
+ * for the download. Safe to call repeatedly; work happens once.
+ *
+ * @param {{ decoder?: boolean }} [opts] also preload the decoder
+ * @returns {Promise<void>}
+ */
+export async function ready(opts) {
+  await Promise.all([ensureEncoder(), opts?.decoder ? ensureDecoder() : null]);
+}
+
+/**
+ * Generate a QR code as PNG bytes (1-bit grayscale).
  *
  * @param {string} text
- * @param {object} [opts]
+ * @param {import('./index').GenerateOptions} [opts]
  * @returns {Promise<Uint8Array>}
  */
-export async function generate(text, opts) {
-  await ensureInit();
-  return _generate_png(text, ...normalizeOpts(opts));
+export async function generatePng(text, opts) {
+  const args = normalizeOpts(opts);
+  await ensureEncoder();
+  return _png(text, ...args);
 }
 
 /**
- * Generate QR as PNG
- */
-export async function generate_png(text, opts) {
-  await ensureInit();
-  return _generate_png(text, ...normalizeOpts(opts));
-}
-
-/**
- * Generate QR as SVG
- */
-export async function generate_svg(text, opts) {
-  await ensureInit();
-  return _generate_svg(text, ...normalizeOpts(opts));
-}
-
-/**
- * Decode QR from ImageData (Canvas / Browser)
+ * Generate a QR code as SVG markup (a single `<path>`).
  *
- * @param {ImageData} image
+ * @param {string} text
+ * @param {import('./index').GenerateOptions} [opts]
  * @returns {Promise<string>}
  */
-export async function decode(image) {
-  await ensureInit();
-  return _decode(image);
+export async function generateSvg(text, opts) {
+  const args = normalizeOpts(opts);
+  const href = logoHref(opts);
+  await ensureEncoder();
+  return _svg(text, ...args, href);
 }
+
+/**
+ * Encode a batch in one crossing of the JS/WASM boundary. For a page rendering
+ * a table of codes this is meaningfully cheaper than a loop over
+ * {@link generatePng}.
+ *
+ * Fails on the first bad entry; the thrown error carries `index`.
+ *
+ * @param {string[]} texts
+ * @param {import('./index').GenerateOptions} [opts]
+ * @returns {Promise<Uint8Array[]>}
+ */
+export async function generateMany(texts, opts) {
+  if (!Array.isArray(texts)) {
+    throw new TypeError("generateMany expects an array of strings");
+  }
+  const args = normalizeOpts(opts);
+  await ensureEncoder();
+  return _manyPng(texts, ...args);
+}
+
+/**
+ * The raw module grid, for rendering the code yourself (canvas, inline `<svg>`,
+ * PDF, native). `dark[y * n + x]` is 1 for a dark module.
+ *
+ * @param {string} text
+ * @param {import('./index').GenerateOptions} [opts]
+ * @returns {Promise<import('./index').QrModules>}
+ */
+export async function generateModules(text, opts) {
+  const args = normalizeOpts(opts);
+  await ensureEncoder();
+  return _modules(text, ...args);
+}
+
+/** Alias of {@link generatePng}. */
+export const generate = generatePng;
+
+/**
+ * Read a QR code out of image bytes (PNG/JPEG/WebP) or canvas `ImageData`.
+ * Loads the decoder WASM module on first use.
+ *
+ * @param {Uint8Array | ImageData} input
+ * @returns {Promise<string>}
+ */
+export async function decode(input) {
+  const mod = await ensureDecoder();
+  return mod.decode(input);
+}
+
+/**
+ * Every readable QR code in the image, with the pixel corners of each one.
+ * Useful for overlays, and for images that contain more than one code.
+ *
+ * @param {Uint8Array | ImageData} input
+ * @returns {Promise<import('./index').DecodedQr[]>}
+ */
+export async function decodeAll(input) {
+  const mod = await ensureDecoder();
+  return mod.decode_all(input);
+}
+
+// Snake_case names from 0.5.x. Deprecated, kept so existing code keeps working.
+export const generate_png = generatePng;
+export const generate_svg = generateSvg;
+export const generate_modules = generateModules;

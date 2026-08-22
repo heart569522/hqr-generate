@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    # `*.x` covers maintenance branches (0.5.x, 1.0.x) created from a tag when a
+    # released line needs a backport.
+    branches: [master, develop, "*.x"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: Rust (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: rustup component add rustfmt clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --features decode --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --features decode
+
+      # Each published WASM binary is built from one of these feature sets, so
+      # they all have to compile on their own — not just the union of them.
+      - name: Feature matrix
+        run: |
+          cargo check --no-default-features --features generate
+          cargo check --no-default-features --features decode
+          cargo check --no-default-features --features generate,decode
+
+  wasm:
+    name: WASM + npm package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install wasm toolchain
+        run: rustup target add wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: latest
+
+      - name: Clippy (wasm bindings)
+        run: |
+          cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,generate -- -D warnings
+          cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,decode -- -D warnings
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # The 0.5.0 line shipped a 1.4 MB decoder because nothing watched this.
+      - name: Size budget
+        run: npm run size
+
+      - name: Package smoke tests
+        run: npm run test:node
+
+      - name: Verify publish contents
+        run: npm pack --dry-run --ignore-scripts

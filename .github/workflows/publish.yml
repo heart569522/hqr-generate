@@ -1,0 +1,110 @@
+name: Publish
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      # Needed to create the GitHub release.
+      contents: write
+      # The OIDC token npm exchanges for publish rights. This is what replaces
+      # a stored NPM_TOKEN — nothing long-lived exists to leak or rotate.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 24 ships npm 11, which is where trusted publishing lives.
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # Belt and braces: if a future runner image ships an older npm, publishing
+      # would quietly fall back to looking for a token that no longer exists.
+      - name: Ensure npm can do trusted publishing
+        run: |
+          need=11.5.1
+          have="$(npm --version)"
+          if [ "$(printf '%s\n%s\n' "$need" "$have" | sort -V | head -1)" != "$need" ]; then
+            echo "npm $have predates trusted publishing (needs $need) — upgrading"
+            npm install -g npm@latest
+          fi
+          echo "npm $(npm --version)"
+
+      - name: Install wasm toolchain
+        run: rustup target add wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: latest
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm run size
+      - run: npm run test:rust
+      - run: npm run test:node
+
+      - name: Check the tag matches package.json
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag $tag does not match package.json version $pkg" >&2
+            exit 1
+          fi
+
+      # Authenticated by OIDC, configured as a trusted publisher on npmjs.com
+      # against this repo and this workflow filename. No secret is involved.
+      - name: Publish to npm
+        id: publish
+        run: |
+          version="$(node -p "require('./package.json').version")"
+
+          # npm does not infer the dist-tag from a prerelease version: without
+          # this, pushing v0.7.0-next.0 would make it `latest` for everyone.
+          case "$version" in
+            *-*) dist_tag=next ;;
+            *)   dist_tag=latest ;;
+          esac
+          echo "prerelease=$([ "$dist_tag" = next ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "Publishing $version to dist-tag $dist_tag"
+
+          # --ignore-scripts publishes exactly the tree the steps above built,
+          # size-checked and tested. Without it `prepack` would wipe pkg/ and
+          # rebuild, so the tarball would not be the one that was verified.
+          #
+          # Trusted publishing attaches provenance on its own; --provenance is
+          # kept so the intent is visible in the log.
+          npm publish --access public --provenance --tag "$dist_tag" --ignore-scripts
+
+      # Runs only after npm accepted the package, so a failed publish never
+      # leaves a release pointing at a version nobody can install.
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRERELEASE: ${{ steps.publish.outputs.prerelease == 'true' && '--prerelease' || '' }}
+        run: |
+          notes=".github/release-notes/${GITHUB_REF_NAME}.md"
+
+          if [ -f "$notes" ]; then
+            # First line is the `# ` heading; it becomes the release title.
+            title="$(head -1 "$notes" | sed 's/^# *//')"
+            tail -n +2 "$notes" > /tmp/release-body.md
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$title" \
+              --notes-file /tmp/release-body.md \
+              --verify-tag $PRERELEASE
+          else
+            echo "::warning::no .github/release-notes/${GITHUB_REF_NAME}.md — falling back to generated notes"
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes \
+              --verify-tag $PRERELEASE
+          fi

@@ -1,3 +1,4 @@
+#[cfg(feature = "generate")]
 pub mod generate;
 
 #[cfg(feature = "decode")]

@@ -1,6 +1,18 @@
+# Build output. `npm run build` regenerates both; `npm run clean` removes them.
 /target
 /pkg
-/tests
-/node_modules
+/react
 
+/node_modules
+/tests/my-app/node_modules
+/tests/my-app/.next
+/tests/my-app/package-lock.json
+
+# Local tarballs from `npm pack`.
+*.tgz
+
+# Local editor / agent config, and the registry file that carries a token.
+/.claude
 .npmrc.github
+
+.DS_Store
