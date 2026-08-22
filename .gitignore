@@ -1,6 +1,14 @@
 /target
 /pkg
-/tests
 /node_modules
 
+# Manual browser/Next.js smoke apps — not part of the published package.
+/tests/my-app/node_modules
+/tests/my-app/.next
+/tests/my-app/package-lock.json
+
+# Local tarballs from `npm pack`.
+*.tgz
+
 .npmrc.github
+.DS_Store

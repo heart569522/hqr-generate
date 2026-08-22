@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>hqr-generate — browser smoke test</title>
+    <style>
+      body { font: 14px/1.6 ui-monospace, monospace; margin: 2rem; }
+      .pass { color: #0a7d32; } .fail { color: #c0261a; }
+      #summary { font-size: 1.2rem; font-weight: 700; margin-bottom: 1rem; }
+      img, svg { image-rendering: pixelated; vertical-align: middle; }
+    </style>
+  </head>
+  <body>
+    <div id="summary">running…</div>
+    <ol id="results"></ol>
+    <div id="preview"></div>
+
+    <script type="module">
+      // Exercises the real browser entry: lazy WASM init, the separate decoder
+      // module, option handling and error codes. Serve over HTTP (WASM will not
+      // load from file://) and open this page.
+      import {
+        decode,
+        decodeAll,
+        generate,
+        generateMany,
+        generateModules,
+        generatePng,
+        generateSvg,
+        ready,
+      } from "../index.web.js";
+      import { createScanner } from "../scanner.js";
+      import { promptpay, wifi } from "../payload.js";
+
+      const results = [];
+      const check = async (name, fn) => {
+        try {
+          await fn();
+          results.push({ name, ok: true });
+        } catch (e) {
+          results.push({ name, ok: false, error: String(e?.message ?? e) });
+        }
+      };
+      const assert = (cond, msg) => {
+        if (!cond) throw new Error(msg);
+      };
+
+      const pngSize = (bytes) => {
+        const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        return { width: v.getUint32(16), height: v.getUint32(20) };
+      };
+
+      await check("ready() resolves", () => ready());
+
+      await check("generate() with no options", async () => {
+        const bytes = await generate("https://example.com");
+        assert(bytes instanceof Uint8Array, "expected Uint8Array");
+        const { width, height } = pngSize(bytes);
+        assert(width === 320 && height === 320, `got ${width}x${height}`);
+      });
+
+      await check("size is exact", async () => {
+        for (const size of [128, 256, 320, 500]) {
+          const { width } = pngSize(await generatePng("exact size", { size }));
+          assert(width === size, `asked ${size}, got ${width}`);
+        }
+      });
+
+      await check("svg renders at the requested size", async () => {
+        const svg = await generateSvg("https://example.com", { size: 256 });
+        assert(svg.includes('width="256"'), "missing width");
+        assert(svg.match(/<path/g).length === 1, "expected exactly one path");
+        document.getElementById("preview").innerHTML = svg;
+      });
+
+      await check("module grid round-trips through canvas + decode", async () => {
+        const m = await generateModules("canvas round trip", { size: 240 });
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = m.size;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, m.size, m.size);
+        ctx.fillStyle = "#000";
+        for (let y = 0; y < m.n; y++) {
+          for (let x = 0; x < m.n; x++) {
+            if (!m.dark[y * m.n + x]) continue;
+            ctx.fillRect(m.origin + x * m.scale, m.origin + y * m.scale, m.scale, m.scale);
+          }
+        }
+        const text = await decode(ctx.getImageData(0, 0, m.size, m.size));
+        assert(text === "canvas round trip", `decoded ${JSON.stringify(text)}`);
+      });
+
+      await check("decode() reads our own PNG bytes", async () => {
+        const bytes = await generatePng("png bytes round trip");
+        const text = await decode(bytes);
+        assert(text === "png bytes round trip", `decoded ${JSON.stringify(text)}`);
+      });
+
+      await check("PNG renders as an <img>", async () => {
+        const bytes = await generatePng("blob url", { size: 160 });
+        const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+        const img = new Image();
+        await new Promise((res, rej) => {
+          img.onload = res;
+          img.onerror = () => rej(new Error("image failed to decode"));
+          img.src = url;
+        });
+        assert(img.naturalWidth === 160, `natural width ${img.naturalWidth}`);
+        document.getElementById("preview").append(img);
+        URL.revokeObjectURL(url);
+      });
+
+      // Paint a module grid into a 2d context.
+      const paint = (ctx, m) => {
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, m.size, m.size);
+        ctx.fillStyle = "#000";
+        for (let y = 0; y < m.n; y++) {
+          for (let x = 0; x < m.n; x++) {
+            if (m.dark[y * m.n + x]) {
+              ctx.fillRect(m.origin + x * m.scale, m.origin + y * m.scale, m.scale, m.scale);
+            }
+          }
+        }
+      };
+
+      await check("generateMany returns a batch in order", async () => {
+        const texts = ["batch a", "batch b", "batch c"];
+        const batch = await generateMany(texts, { size: 160 });
+        assert(batch.length === 3, `got ${batch.length}`);
+        for (let i = 0; i < texts.length; i++) {
+          assert((await decode(batch[i])) === texts[i], `entry ${i} decoded wrong`);
+        }
+      });
+
+      await check("logoSpace + logo renders and still decodes", async () => {
+        const text = "https://example.com/logo-in-browser";
+        const bytes = await generatePng(text, { ecc: "H", logoSpace: 25, size: 400 });
+        assert((await decode(bytes)) === text, "code with a hole failed to decode");
+
+        const svg = await generateSvg(text, {
+          ecc: "H",
+          logoSpace: 25,
+          size: 400,
+          logo:
+            "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2 2'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23c0261a'/%3E%3C/svg%3E",
+        });
+        assert(svg.includes("<image "), "expected a logo element");
+
+        // The browser must accept the markup we emit, escaping and all.
+        const parsed = new DOMParser().parseFromString(svg, "image/svg+xml");
+        assert(!parsed.querySelector("parsererror"), "browser rejected the SVG");
+        document.getElementById("preview").insertAdjacentHTML("beforeend", svg);
+      });
+
+      await check("decodeAll reports positions", async () => {
+        const results = await decodeAll(await generatePng("positioned", { size: 300 }));
+        assert(results.length === 1, `got ${results.length} results`);
+        assert(results[0].text === "positioned", "wrong text");
+        assert(results[0].corners.length === 4, "expected 4 corners");
+      });
+
+      await check("payload builders produce scannable codes", async () => {
+        const pp = promptpay({ target: "0812345678", amount: 120.5 });
+        assert((await decode(await generatePng(pp, { ecc: "M" }))) === pp, "promptpay round trip");
+
+        const net = wifi({ ssid: "Test; Net", password: 'p:a"ss' });
+        assert((await decode(await generatePng(net))) === net, "wifi round trip");
+      });
+
+      await check("scanner reads a live MediaStream", async () => {
+        // No camera here, so a canvas stands in for one: captureStream() gives a
+        // real MediaStream, which is what the scanner actually consumes.
+        const m = await generateModules("scanner works", { size: 400 });
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = m.size;
+        const ctx = canvas.getContext("2d");
+        paint(ctx, m);
+
+        let painting = true;
+        const repaint = () => {
+          if (!painting) return;
+          paint(ctx, m);
+          requestAnimationFrame(repaint);
+        };
+        requestAnimationFrame(repaint);
+
+        const stream = canvas.captureStream(15);
+        const mediaDevices = navigator.mediaDevices ?? {};
+        const original = mediaDevices.getUserMedia;
+        Object.defineProperty(navigator, "mediaDevices", {
+          value: { ...mediaDevices, getUserMedia: async () => stream },
+          configurable: true,
+        });
+
+        const video = document.createElement("video");
+        video.style.width = "120px";
+        document.getElementById("preview").append(video);
+
+        let scanner;
+        try {
+          const result = await new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error("no result within 10s")), 10000);
+            createScanner({
+              video,
+              scanIntervalMs: 60,
+              onResult: (r) => {
+                clearTimeout(timer);
+                resolve(r);
+              },
+              onError: (e) => {
+                clearTimeout(timer);
+                reject(e);
+              },
+            }).then((s) => {
+              scanner = s;
+            }, reject);
+          });
+
+          assert(result.text === "scanner works", `decoded ${JSON.stringify(result.text)}`);
+          assert(result.corners.length === 4, "expected corner positions");
+          // Corners come back in video coordinates, not the downscaled buffer.
+          assert(
+            result.corners.every((c) => c.x >= 0 && c.x <= m.size + 1),
+            "corners were not scaled back to the source resolution",
+          );
+        } finally {
+          painting = false;
+          scanner?.stop();
+          if (original) {
+            Object.defineProperty(navigator, "mediaDevices", {
+              value: mediaDevices,
+              configurable: true,
+            });
+          }
+        }
+
+        assert(video.srcObject === null, "scanner.stop() must release the stream");
+      });
+
+      await check("errors carry a code", async () => {
+        const cases = [
+          [() => generatePng(""), "EMPTY_TEXT"],
+          [() => generatePng("x", { ecc: "Z" }), "INVALID_OPTION"],
+          [() => generatePng("x".repeat(8000)), "PAYLOAD_TOO_LONG"],
+          [() => decode(new Uint8Array([1, 2, 3])), "INVALID_IMAGE"],
+          [() => generatePng("x", { ecc: "L", logoSpace: 30 }), "LOGO_SPACE_TOO_LARGE"],
+          [() => generateSvg("x", { logo: "data:," }), "INVALID_OPTION"],
+        ];
+        for (const [fn, code] of cases) {
+          let thrown;
+          try {
+            await fn();
+          } catch (e) {
+            thrown = e;
+          }
+          assert(thrown, `expected ${code} to throw`);
+          assert(thrown instanceof Error, `${code}: not an Error instance`);
+          assert(thrown.code === code, `expected ${code}, got ${thrown.code}`);
+        }
+      });
+
+      const failed = results.filter((r) => !r.ok);
+      document.getElementById("results").innerHTML = results
+        .map(
+          (r) =>
+            `<li class="${r.ok ? "pass" : "fail"}">${r.ok ? "PASS" : "FAIL"} — ${r.name}` +
+            (r.error ? `<br><small>${r.error}</small>` : "") +
+            "</li>",
+        )
+        .join("");
+      const summary = document.getElementById("summary");
+      summary.textContent = `${results.length - failed.length}/${results.length} passed`;
+      summary.className = failed.length ? "fail" : "pass";
+      window.__RESULTS__ = results;
+    </script>
+  </body>
+</html>

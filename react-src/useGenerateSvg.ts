@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { generate_svg } from "../index.web.js";
+import { generateSvg } from "../index.web.js";
 import type { GenerateOptions } from "../index";
 
 export function useGenerateSvg(
@@ -17,6 +17,7 @@ export function useGenerateSvg(
   const size = opts?.size;
   const margin = opts?.margin;
   const ecc = opts?.ecc;
+  const sizeMode = opts?.sizeMode;
 
   useEffect(() => {
     if (!text) return;
@@ -28,7 +29,7 @@ export function useGenerateSvg(
       try {
         setLoading(true);
 
-        const markup = await generate_svg(text, { size, margin, ecc });
+        const markup = await generateSvg(text, { size, margin, ecc, sizeMode });
         if (cancelled) return;
 
         setSvg(markup);
@@ -50,7 +51,7 @@ export function useGenerateSvg(
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [text, size, margin, ecc]);
+  }, [text, size, margin, ecc, sizeMode]);
 
   return {
     svg,

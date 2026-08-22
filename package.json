@@ -1,6 +1,6 @@
 {
   "name": "@wirunrom/hqr-generate",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "High-performance QR code generator and decoder powered by Rust + WASM",
   "license": "MIT",
   "type": "module",
@@ -9,36 +9,68 @@
     "url": "git+https://github.com/wirunrom/hqr-generate.git"
   },
   "homepage": "https://github.com/wirunrom/hqr-generate#readme",
+  "engines": {
+    "node": ">=20.19"
+  },
   "files": [
     "pkg/**",
+    "internal/**",
     "index.node.js",
     "index.web.js",
     "index.d.ts",
     "index.web.d.ts",
+    "index.node.d.ts",
+    "payload.js",
+    "payload.d.ts",
+    "scanner.js",
+    "scanner.d.ts",
     "react/**",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md",
+    "MIGRATION.md"
   ],
   "types": "./index.d.ts",
   "main": "./index.node.js",
   "module": "./index.web.js",
+  "browser": "./index.web.js",
+  "sideEffects": [
+    "./pkg/**"
+  ],
   "exports": {
     ".": {
+      "browser": {
+        "types": "./index.d.ts",
+        "default": "./index.web.js"
+      },
+      "node": {
+        "types": "./index.node.d.ts",
+        "default": "./index.node.js"
+      },
       "types": "./index.d.ts",
-      "import": "./index.web.js",
-      "require": "./index.node.js",
-      "browser": "./index.web.js",
-      "node": "./index.node.js",
       "default": "./index.web.js"
     },
     "./react": {
       "types": "./react/index.d.ts",
       "default": "./react/index.js"
     },
+    "./payload": {
+      "types": "./payload.d.ts",
+      "default": "./payload.js"
+    },
+    "./scanner": {
+      "types": "./scanner.d.ts",
+      "default": "./scanner.js"
+    },
     "./web": {
       "types": "./index.d.ts",
       "default": "./index.web.js"
-    }
+    },
+    "./node": {
+      "types": "./index.node.d.ts",
+      "default": "./index.node.js"
+    },
+    "./package.json": "./package.json"
   },
   "peerDependencies": {
     "react": ">=17"
@@ -49,13 +81,21 @@
     }
   },
   "scripts": {
-    "clean": "rm -rf pkg",
-    "build:web": "wasm-pack build --target web --out-dir pkg/web -- --features wasm,decode",
-    "build:node": "wasm-pack build --target nodejs --out-dir pkg/nodejs -- --features wasm,decode",
+    "clean": "rm -rf pkg react",
+    "build:wasm:web": "wasm-pack build --target web --out-dir pkg/web -- --no-default-features --features wasm,generate",
+    "build:wasm:web-decode": "wasm-pack build --target web --out-dir pkg/web-decode -- --no-default-features --features wasm,decode",
+    "build:wasm:node": "wasm-pack build --target nodejs --out-dir pkg/nodejs -- --no-default-features --features wasm,generate",
+    "build:wasm:node-decode": "wasm-pack build --target nodejs --out-dir pkg/nodejs-decode -- --no-default-features --features wasm,decode",
+    "build:wasm": "npm run build:wasm:web && npm run build:wasm:web-decode && npm run build:wasm:node && npm run build:wasm:node-decode && node scripts/finalize-pkg.mjs",
     "build:react": "tsc -p tsconfig.react.json",
-    "build": "npm run build:web && npm run build:node && npm run build:react",
-    "prepack": "npm run clean && npm run build && find pkg \\( -name README.md -o -name LICENSE -o -name package.json -o -name .gitignore \\) -delete",
+    "build": "npm run build:wasm && npm run build:react",
+    "test:rust": "cargo test --features decode",
+    "test:node": "node --test tests/node/*.test.mjs",
+    "test": "npm run test:rust && npm run test:node",
+    "lint": "cargo fmt --all -- --check && cargo clippy --features decode --all-targets -- -D warnings",
     "bench": "cargo bench --bench generate",
+    "size": "node scripts/size-report.mjs",
+    "prepack": "npm run clean && npm run build && npm run test:node",
     "release:test": "npm version prerelease --preid=next && npm run publish:test",
     "publish:test": "npm publish --tag next --registry=https://registry.npmjs.org --access public",
     "publish:npm": "npm publish --registry=https://registry.npmjs.org --access public",

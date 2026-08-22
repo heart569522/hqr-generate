@@ -10,73 +10,103 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Building requires `wasm-pack` (and a Rust toolchain with `wasm32-unknown-unknown`).
 
-- `npm run build` — full build: web WASM + Node WASM + React TS
-- `npm run build:web` — `wasm-pack build --target web --out-dir pkg/web -- --features wasm,decode`
-- `npm run build:node` — `wasm-pack build --target nodejs --out-dir pkg/nodejs -- --features wasm,decode`
+- `npm run build` — 4 WASM builds + React TS
+- `npm run build:wasm` — the four `wasm-pack` builds, then `scripts/finalize-pkg.mjs`
 - `npm run build:react` — `tsc -p tsconfig.react.json` (compiles `react-src/` → `react/`)
-- `npm run clean` — removes `pkg/`
-- `npm run prepare` — clean + build + strips `README.md`/`LICENSE`/`package.json`/`.gitignore` from `pkg/**`
+- `npm test` — `cargo test --features decode` + `node --test tests/node/*.test.mjs`
+- `npm run lint` — `cargo fmt --check` + `cargo clippy -D warnings`
+- `npm run size` — bundle size report; **exits non-zero if a binary exceeds its budget**
+- `npm run bench` — criterion benchmarks (`benches/generate.rs`)
+- `npm run clean` — removes `pkg/` and `react/`
 
-Rust-only workflow (no wasm toolchain needed for these):
-- `cargo check --features decode` — quick type check including decoder
-- `cargo bench --bench generate` — criterion perf benchmarks (see `benches/generate.rs`)
+Rust-only workflow (no wasm toolchain needed):
+- `cargo test --features decode` — unit + round-trip tests
+- `cargo check --no-default-features --features generate` / `--features decode` — each published binary's feature set must compile on its own
 
-There is no test runner configured. `tests/test.html` and `tests/my-app/` are manual smoke tests — serve over HTTP (WASM won't load from `file://`).
+`tests/browser.html` is the browser smoke test for the local build (serve over HTTP; WASM won't load from `file://`). It covers the scanner by stubbing `getUserMedia` with `canvas.captureStream()` — a real `MediaStream`, so the whole pump/decode/dedupe path runs without a camera. `tests/test.html` points at the published CDN build. `tests/my-app/` is a manual Next.js app.
 
-Publishing: `publish:npm`, `publish:github` (uses `.npmrc.github`), `release:test` (prerelease `next` tag).
+Publishing: tag-triggered via `.github/workflows/publish.yml` (npm provenance). Manual escape hatches: `publish:npm`, `publish:github`, `release:test`.
 
 ## Architecture
+
+### Four WASM binaries, not one
+
+The encoder and decoder are built separately and shipped as separate `.wasm` files:
+
+| out-dir             | features         | target   | ~gzip  |
+| ------------------- | ---------------- | -------- | ------ |
+| `pkg/web`           | `wasm,generate`  | web      | 85 KB  |
+| `pkg/web-decode`    | `wasm,decode`    | web      | 280 KB |
+| `pkg/nodejs`        | `wasm,generate`  | nodejs   | 85 KB  |
+| `pkg/nodejs-decode` | `wasm,decode`    | nodejs   | 280 KB |
+
+The decoder is loaded lazily (`await import(...)` on web, `createRequire` on Node) the first time `decode` is called, so generate-only consumers never pay for it. **Do not merge the two back into one binary**, and do not add a dependency to the `generate` feature without checking `npm run size` — that budget is what keeps this honest (0.5.0 shipped 1.4 MB by accident).
+
+`image` is deliberately `default-features = false, features = ["png","jpeg","webp"]`. The default set compiles TIFF/DDS/OpenEXR/HDR/PNM/ICO/BMP/GIF decoders that a QR scan can never contain. Keep the direct `png` dependency in lockstep with the version `image` pulls in, or the binary ends up with two copies of the PNG codec.
 
 ### Rust core (`src/`)
 
 The pipeline is split into two layers to keep fast paths cheap:
 
 1. **Module grid** (cheap, ~`n²` bools where `n` ≈ 21–177):
-   - `core::generate::generate_qr_modules(text, size, margin, ecc)` → `QrModules { n, margin, scale, dark: Vec<bool> }`
-   - QR encoding uses the `fast_qr` crate (≈10× faster than `qrcode` for typical payloads). `QRBuilder::new(bytes).ecl(ecl).build()` returns a `QRCode` indexed as `qr[y][x] -> &[Module]`; `Module::value()` is the dark/light bool.
+   - `core::generate::generate_qr_modules(text, GenerateOptions)` → `QrModules { n, margin, scale, offset, img_size, dark }`
+   - QR encoding uses the `fast_qr` crate. `QRBuilder::new(bytes).ecl(ecl).build()` returns a `QRCode` indexed as `qr[y][x] -> &[Module]`; `Module::value()` is the dark/light bool.
 2. **Rasterization** (only when bytes are actually needed):
-   - `render::png::render_png_modules(&QrModules)` — rasterizes **directly into a 1-bit packed PNG scanline buffer** (`BitDepth::One`). Uses `clear_range_1bit` to zero out pixel ranges byte-by-byte with head/middle/tail masking. No intermediate 8-bit bitmap is allocated on the fast path.
-   - `render::svg::render_svg_modules(&QrModules)` — emits a single `<path>` with one rectangular subpath per horizontal run of dark modules. Uses relative `m` commands and tracks pen position to keep the `d` attribute compact.
-   - `core::generate::rasterize(&QrModules)` → `QrBitmap` and `render::png::render_png(&QrBitmap)` / `render::svg::render_svg(&QrBitmap)` are the legacy 8-bit paths, kept for API compatibility but not used by the wasm entry points.
+   - `render::png::render_png_modules(&QrModules)` — rasterizes **directly into a 1-bit packed PNG scanline buffer** (`BitDepth::One`), using `clear_range_1bit` with head/middle/tail masking. No intermediate 8-bit bitmap on the fast path.
+   - `render::svg::render_svg_modules(&QrModules)` — one `<path>` with a rectangular subpath per horizontal run of dark modules, relative `m` commands, pen position tracked to keep `d` compact.
+   - `rasterize(&QrModules)` → `QrBitmap` and `render_png` / `render_svg` are the legacy 8-bit paths, kept for API compatibility and bench comparison. Not used by the wasm entry points.
+
+`logo_space` blanks a centred square of modules so a logo can sit there. Two limits are enforced in `logo_side()` and both matter: error correction has to reconstruct every blanked module (we spend at most **half** the level's budget, leaving the rest for real-world damage), and the square must never reach the finder patterns or separators — 8 modules in from each corner — because no amount of ECC brings those back. The SVG renderer draws the logo; PNG only reserves the space, because decoding images in the encoder build is precisely what would undo the size work.
+
+**Sizing (`layout()` in `generate.rs`) is the part most likely to be broken by a careless edit.** `scale` is always a whole number of pixels per module — never scale fractionally, that is what keeps codes crisp and scannable. `SizeMode::Exact` hits the requested pixel size by widening the quiet zone with the leftover pixels (`offset`); `SizeMode::Fit` returns the largest whole-module image that fits. Renderers must offset every coordinate by `QrModules::origin_px()`. `tests/roundtrip.rs::extra_padding_does_not_shift_the_symbol_out_of_alignment` sweeps sizes 300..320 to catch off-by-one drift here.
 
 Other files:
-- `src/core/types.rs` — `QrBitmap`, `QrModules` (with `img_size()` / `is_dark(x,y)` helpers), `DecodeInput` (`ImageBytes(&[u8])` or `Rgba { width, height, data }`).
-- `src/core/decode/` — behind `decode` feature. `impl_.rs` computes BT.601 luminance inline inside the `rqrr::PreparedImage::prepare_from_greyscale` closure (integer shifts, no intermediate grayscale `Vec`).
-- `src/wasm.rs` — `#[wasm_bindgen]` entry points (`generate`, `generate_png`, `generate_svg`, `decode`). `generate`/`generate_png` call `generate_qr_modules → render_png_modules` (1-bit path); `generate_svg` calls `generate_qr_modules → render_svg_modules`. `decode` dispatches on `input.is_instance_of::<Uint8Array>()` vs. reading `width`/`height`/`data` via `Reflect` (handles `ImageData`).
-- `ecc` is passed over the FFI boundary as a `u8`: `0=L, 1=M, 2=Q (default), 3=H` (see `ecc_to_ecl` in `generate.rs`). The JS shims map the `'L'|'M'|'Q'|'H'` string to this `u8` — **do not pass the string directly to WASM**.
+- `src/core/types.rs` — `Ecc`, `SizeMode`, `GenerateOptions`, `QrBitmap`, `QrModules`, `DecodeInput`.
+- `src/core/decode/` — behind `decode`. `impl_.rs` computes BT.601 luminance inline inside the `rqrr::PreparedImage::prepare_from_greyscale` closure (integer shifts, no intermediate grayscale `Vec`), and distinguishes "no symbol" (`NotFound`) from "symbol found, unreadable" (`Corrupt`).
+- `src/error.rs` — `GenerateError` / `DecodeError`, each with a stable `.code()` string that becomes `err.code` in JS. Never leak `{:?}` of a Rust enum to JS.
+- `src/wasm.rs` — `#[wasm_bindgen]` entry points, each gated on its feature. Errors cross as `js_sys::Error` with `code` set via `Reflect`. `generate_modules` returns a **plain JS object**, not a wasm-bindgen class, so callers have nothing to `.free()`.
+- `generate_many_png` amortizes the FFI boundary for batches; `decode_all` returns every symbol with its corner points.
+- `ecc`, `size_mode` and `logo_space` cross the FFI boundary as `u8` (`0=L,1=M,2=Q,3=H`; `0=exact,1=fit`). The JS layer maps the strings — **never pass the string straight to WASM** (that was a real bug that silently forced every code to ECC Q).
 
 ### Cargo features
-- `generate` (default) — encode only, no decoder deps.
-- `decode` — pulls in `image` + `rqrr`.
-- `wasm` — pulls in `wasm-bindgen` + `js-sys` and exposes `src/wasm.rs`.
+- `generate` (default) — `fast_qr` + `png`, encoder and renderers.
+- `decode` — `image` + `rqrr`.
+- `wasm` — `wasm-bindgen` + `js-sys`, exposes `src/wasm.rs` for whichever of the two above is enabled.
 
-`fast_qr` is imported with `default-features = false` to avoid pulling in its own SVG/image builders (we render ourselves). The published build enables `wasm,decode`. `generate` is default so `cargo check`/`cargo build` work without the WASM toolchain.
+All three combinations must compile independently; CI checks the matrix.
 
-`[profile.bench]` enables `lto = true` + `codegen-units = 1` for realistic perf numbers.
+**The Node binaries are inlined as base64 by `scripts/finalize-pkg.mjs`, and must stay that way.** wasm-pack's Node glue locates its binary with `readFileSync(__dirname + "/hqr_generate_bg.wasm")`, and any bundler that pulls that CJS module into its own output rewrites `__dirname`, so the read fails with `ENOENT` at import time — Next.js server components, route handlers, serverless bundles.
+
+The usual workaround for WASM packages, `serverExternalPackages`, was tried and is **worse**: an externalized copy of `react/*.js` resolves its own `react`, so every client component using our hooks dies during SSR with `Cannot read properties of null (reading 'useRef')`. Both failures are silent in unit tests and only show up in a real framework, which is what `tests/my-app` exists to catch.
+
+`inlineWasm()` asserts it matched wasm-pack's disk-load block exactly once and throws otherwise — if a wasm-pack upgrade changes that glue, the build fails loudly instead of shipping a package that breaks only inside bundlers.
 
 ### JS entry points
 
-Two hand-written shim files wrap the generated WASM bindings:
-- `index.web.js` — browser ESM entry. Imports `pkg/web/hqr_generate.js`, lazily calls `init()` once (cached in `_initPromise`), then delegates. All functions are async.
-- `index.node.js` — Node entry. Imports `pkg/nodejs/hqr_generate.js` (no init needed); functions are sync but typed as possibly-Promise.
-- Both shims share a `normalizeOpts(opts)` helper that:
-  1. Applies defaults: `size=320, margin=4, ecc='Q'`. **Calling `generate("x")` with no opts must not throw.**
-  2. Translates `ecc` via `ECC_MAP = { L:0, M:1, Q:2, H:3 }` before passing to WASM. The WASM binding takes a `u8`; passing the raw string `'Q'` silently falls through to the default Q branch of the Rust match (this was a real bug — don't reintroduce it).
-- `package.json` `exports` map selects: `browser`/`import` → web, `require`/`node` → node.
+- `internal/options.js` — **the single source of truth for option handling**, shared by both entries. Defaults (`size=320, margin=4, ecc='Q', sizeMode='exact', logoSpace=0`), string→`u8` translation, validation. `generate("x")` with no opts must not throw.
+- `payload.js` (`/payload` subpath) — pure string builders. **No imports from the rest of the package**, so nothing pulls WASM in. PromptPay is EMVCo TLV plus CRC-16/CCITT-FALSE; the CRC covers tag 63's own `6304` header, and `tests/node/payload.test.mjs` pins both the structure and the standard `123456789 -> 0x29B1` vector.
+- `scanner.js` (`/scanner` subpath) — camera plumbing over `decodeAll`. Main-thread decode, throttled by `scanIntervalMs`, frames downscaled to `maxSide` before decoding, corners scaled back to video coordinates before they reach the caller. `QR_NOT_FOUND` on a frame is the normal case and must never reach `onError`.
+- `index.web.js` — browser ESM. Lazy `init()` cached in `_encoderReady`; decoder via `import()` cached in `_decoderReady`. All functions async.
+- `index.node.js` — Node ESM. `createRequire` so exports stay **synchronous**, and so the decoder is only read off disk on first use.
+- `package.json` `exports`: **`browser` and `node` must both come before `default`.** 0.5 listed `import` first, which made Node ESM resolve to the fetch-based web build. `tests/node/resolution.test.mjs` asserts this ordering.
+- `scripts/finalize-pkg.mjs` writes `{"type":"commonjs"}` / `{"type":"module"}` into each `pkg/*` directory. Do not just delete wasm-pack's `package.json` — the repo root is `"type": "module"`, so the CJS glue would be parsed as ESM.
 
 ### React layer (`react-src/` → `react/`)
 
 Compiled separately via `tsconfig.react.json`. `react` is an optional peer dependency.
 
-- `useGenerate` / `useGenerateSvg` — **destructure `opts.size/margin/ecc` into primitive effect deps**. Passing the whole `opts` object caused WASM to re-run every render when callers inlined opts (e.g. `useGenerate(t, { size: 320 })`). If you add a new option, add it to the destructure *and* the dep array.
-- Hooks pass `Uint8Array` directly to `new Blob([result as BlobPart], { type: 'image/png' })` — no `ArrayBuffer` slice copy. The `BlobPart` cast is for TS's `SharedArrayBuffer` variance, runtime is unaffected.
-- Object URL is revoked in the effect cleanup.
-- `useDecode` takes `ImageData` directly; no deep-compare on `input` (expensive + callers typically memoize).
+- Hooks **destructure `opts.size/margin/ecc/sizeMode` into primitive effect deps**. Passing the whole `opts` object re-runs WASM every render when callers inline it. If you add an option, add it to the destructure *and* the dep array.
+- Hooks pass `Uint8Array` directly to `new Blob([result as BlobPart], ...)` — no `ArrayBuffer` slice copy. The cast is for TS's `SharedArrayBuffer` variance only.
+- Object URLs are revoked in effect cleanup.
+- `useDecode` depends on `input` by identity **on purpose** — a camera feed produces frames with identical dimensions, so any shallow signature would decode only the first one.
+- `useQrScanner` holds `onResult` in a ref rather than a dep, so a fresh closure from the parent does not tear the camera down and re-request it on every render.
 
 ## Conventions
 
-- Keep the core binary-first. Do not add Base64/Data URL helpers to the Rust core or JS shims — that belongs in the React layer or caller code.
+- Keep the core binary-first. No Base64/Data URL helpers in the Rust core or JS shims — that belongs in the React layer or caller code.
 - Output is intentionally **black & white only** (scan reliability). Don't add color options without a strong reason.
-- Prefer the module-level fast paths (`generate_qr_modules` + `render_*_modules`) for any new rendering. The legacy `QrBitmap` path is kept for back-compat only.
-- When touching the WASM API surface, changes must propagate through: `src/wasm.rs` → `index.web.js` + `index.node.js` (incl. `normalizeOpts`) → `index.d.ts` → `react-src/` hooks (incl. dep arrays).
-- `pkg/` is generated — never edit by hand; it's cleaned by `npm run clean`.
+- Prefer the module-level fast paths (`generate_qr_modules` + `render_*_modules`). The `QrBitmap` path is back-compat only.
+- When touching the WASM API surface, changes must propagate through: `src/wasm.rs` → `internal/options.js` → `index.web.js` + `index.node.js` → `index.d.ts` + `index.node.d.ts` → `react-src/` hooks (incl. dep arrays) → `tests/node/`.
+- `wasm-opt` runs with `--all-features` on purpose. Naming features by hand made it reject the module the moment wasm-bindgen emitted one more.
+- Anything user-visible that changes between versions goes in `CHANGELOG.md` **and** `MIGRATION.md`.
+- `pkg/`, `react/` are generated — never edit by hand.

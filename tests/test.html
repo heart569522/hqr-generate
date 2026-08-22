@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <body>
+    <h3>Generate SVG QR</h3>
+    <p>Checks the <em>published</em> package from a CDN. For the local build, open
+      <a href="./browser.html">browser.html</a> over HTTP.</p>
+
+    <input id="text" value="hello world" />
+    <button id="btn">Generate</button>
+
+    <br /><br />
+    <div id="svg"></div>
+
+    <script type="module">
+      import { generateSvg } from "https://esm.sh/@wirunrom/hqr-generate@0.6.0";
+
+      const btn = document.getElementById("btn");
+      const input = document.getElementById("text");
+      const container = document.getElementById("svg");
+
+      btn.onclick = async () => {
+        const svg = await generateSvg(input.value, {
+          size: 256,
+          ecc: "Q",
+        });
+
+        container.innerHTML = svg;
+      };
+    </script>
+  </body>
+</html>

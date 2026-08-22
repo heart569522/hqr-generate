@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { generate } from "../index.web.js";
+import { generatePng } from "../index.web.js";
 export function useGenerate(text, opts) {
     const [bytes, setBytes] = useState(null);
     const [src, setSrc] = useState(null);
@@ -12,6 +12,7 @@ export function useGenerate(text, opts) {
     const size = opts?.size;
     const margin = opts?.margin;
     const ecc = opts?.ecc;
+    const sizeMode = opts?.sizeMode;
     useEffect(() => {
         if (!text)
             return;
@@ -20,7 +21,7 @@ export function useGenerate(text, opts) {
         (async () => {
             try {
                 setLoading(true);
-                const result = await generate(text, { size, margin, ecc });
+                const result = await generatePng(text, { size, margin, ecc, sizeMode });
                 if (cancelled)
                     return;
                 setBytes(result);
@@ -45,7 +46,7 @@ export function useGenerate(text, opts) {
                 URL.revokeObjectURL(objectUrl);
             }
         };
-    }, [text, size, margin, ecc]);
+    }, [text, size, margin, ecc, sizeMode]);
     return {
         src,
         bytes,
