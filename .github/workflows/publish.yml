@@ -9,7 +9,8 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      # Needed to create the GitHub release.
+      contents: write
       # Required for npm provenance attestation.
       id-token: write
     steps:
@@ -49,3 +50,27 @@ jobs:
         run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Runs only after npm accepted the package, so a failed publish never
+      # leaves a release pointing at a version nobody can install.
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          notes=".github/release-notes/${GITHUB_REF_NAME}.md"
+
+          if [ -f "$notes" ]; then
+            # First line is the `# ` heading; it becomes the release title.
+            title="$(head -1 "$notes" | sed 's/^# *//')"
+            tail -n +2 "$notes" > /tmp/release-body.md
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$title" \
+              --notes-file /tmp/release-body.md \
+              --verify-tag
+          else
+            echo "::warning::no .github/release-notes/${GITHUB_REF_NAME}.md — falling back to generated notes"
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes \
+              --verify-tag
+          fi
