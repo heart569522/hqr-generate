@@ -1,34 +1,17 @@
 # @wirunrom/hqr-generate
 
-Fast, scan-reliable **QR code generator and decoder** powered by **Rust + WebAssembly**.
+Fast, scan-reliable **QR code generator and decoder** — Rust compiled to WebAssembly, with thin JS and React wrappers.
 
-Binary-first: the core returns raw `Uint8Array` (PNG) or `string` (SVG). Base64 and Data URL wrapping are left to the UI layer, so the same API works in the browser, React, Next.js (App Router / SSR / route handlers) and Node.
-
----
-
-## Features
-
-- High-contrast **black & white only** — scan reliability first
-- **1-bit grayscale PNG**, **SVG** as a single compact `<path>`, or the **raw module grid** to render yourself
-- `size` means what it says: the output is exactly the pixel size you asked for
-- **Centre logo** support, with the error-correction budget checked for you
-- QR **decoding** from image bytes (PNG/JPEG/WebP) or canvas `ImageData`, with positions
-- **Live camera scanning** — `@wirunrom/hqr-generate/scanner`, or the `useQrScanner` hook
-- **Typed payload builders** — Wi-Fi, contacts, `otpauth`, **PromptPay** — `@wirunrom/hqr-generate/payload`
-- **The decoder is a separate WASM module** — a page that only generates QR codes never downloads it
-- Errors are real `Error` objects with a stable `.code`
-- Optional React hooks (`react` is an optional peer dependency)
-
----
-
-## Installation
+- **85 KB gzipped** to generate. The decoder is a separate module, fetched only if you call `decode`.
+- Returns raw `Uint8Array` (PNG) or `string` (SVG) — no Base64, no Data URLs
+- Same API in the browser, Node and Next.js (client, SSR and route handlers), with **no bundler configuration**
+- Black & white only, on purpose: scan reliability first
 
 ```bash
 npm i @wirunrom/hqr-generate
 ```
 
-Node 20.19+ is required. Upgrading from 0.5? See [MIGRATION.md](./MIGRATION.md) —
-existing code keeps working, but the returned image is now the size you asked for.
+Node 20.19+. Upgrading from 0.5? Your code still works — see [MIGRATION.md](./MIGRATION.md) for the one behavioural change.
 
 ---
 
@@ -37,47 +20,22 @@ existing code keeps working, but the returned image is now the size you asked fo
 ```js
 import { generatePng, generateSvg, decode } from "@wirunrom/hqr-generate";
 
-const png = await generatePng("https://example.com", { size: 320 });
-// -> Uint8Array, a 320 x 320 PNG
-
-const svg = await generateSvg("https://example.com", { size: 320 });
-// -> '<svg ...><path .../></svg>'
-
-const text = await decode(png);
-// -> 'https://example.com'
+const png = await generatePng("https://example.com", { size: 320 }); // Uint8Array, exactly 320×320
+const svg = await generateSvg("https://example.com", { size: 320 }); // '<svg …><path …/></svg>'
+const text = await decode(png);                                      // 'https://example.com'
 ```
 
-In Node the same imports are **synchronous** — the package `exports` map selects
-a Node build that loads WASM at import time:
+To show it:
 
 ```js
-import { generatePng } from "@wirunrom/hqr-generate";
-
-export function GET() {
-  return new Response(generatePng("https://example.com"), {
-    headers: { "content-type": "image/png" },
-  });
-}
+const url = URL.createObjectURL(new Blob([png], { type: "image/png" }));
+// …and URL.revokeObjectURL(url) when you're done
 ```
 
----
-
-## Next.js
-
-No bundler configuration. All three usages work out of the box:
-
-```tsx
-// Server Component — the SVG is in the HTML. No client JS, no layout shift.
-import { generateSvg } from "@wirunrom/hqr-generate";
-
-export default function Page() {
-  const svg = generateSvg("https://example.com", { size: 240 });
-  return <div dangerouslySetInnerHTML={{ __html: svg }} />;
-}
-```
+In Node the same imports are **synchronous** — the `exports` map picks a build that loads WASM at import time:
 
 ```ts
-// Route Handler — PNG bytes straight out. Note: no await, the Node build is sync.
+// app/api/qr/route.ts — note the absence of await
 import { generatePng } from "@wirunrom/hqr-generate";
 
 export function GET() {
@@ -87,58 +45,33 @@ export function GET() {
 }
 ```
 
-```tsx
-// Client Component — hooks, async under the hood.
-"use client";
-import { useGenerate } from "@wirunrom/hqr-generate/react";
-```
-
-Most WASM packages need `serverExternalPackages` here, because wasm-pack's Node
-glue locates its binary with `readFileSync(__dirname + "/…")` and bundling that
-module rewrites `__dirname`. This one does not: the Node binary is inlined at
-build time, so there is no path to break — in Next, in a serverless bundle, or
-anywhere else. That matters beyond convenience, because externalizing the
-package would give its React hooks their own copy of `react` and every client
-component using them would fail during SSR.
-
-`tests/my-app` is a Next.js app covering all of the above; see
-[Development](#development).
-
 ---
 
 ## API
 
-| Function                          | Returns (browser)       | Returns (Node)  |
-| --------------------------------- | ----------------------- | --------------- |
-| `generatePng(text, options?)`     | `Promise<Uint8Array>`   | `Uint8Array`    |
-| `generateSvg(text, options?)`     | `Promise<string>`       | `string`        |
-| `generateModules(text, options?)` | `Promise<QrModules>`    | `QrModules`     |
-| `generateMany(texts, options?)`   | `Promise<Uint8Array[]>` | `Uint8Array[]`  |
-| `decode(input)`                   | `Promise<string>`       | `string`        |
-| `decodeAll(input)`                | `Promise<DecodedQr[]>`  | `DecodedQr[]`   |
-| `ready(options?)`                 | `Promise<void>`         | `Promise<void>` |
+| | Browser | Node |
+| --- | --- | --- |
+| `generatePng(text, opts?)` | `Promise<Uint8Array>` | `Uint8Array` |
+| `generateSvg(text, opts?)` | `Promise<string>` | `string` |
+| `generateModules(text, opts?)` | `Promise<QrModules>` | `QrModules` |
+| `generateMany(texts, opts?)` | `Promise<Uint8Array[]>` | `Uint8Array[]` |
+| `decode(input)` | `Promise<string>` | `string` |
+| `decodeAll(input)` | `Promise<DecodedQr[]>` | `DecodedQr[]` |
+| `ready(opts?)` | `Promise<void>` | `Promise<void>` |
 
-`generate` is an alias of `generatePng`. The 0.5 snake_case names
-(`generate_png`, `generate_svg`) still resolve.
+`generate` is an alias of `generatePng`. `decode` takes a `Uint8Array` of image bytes (PNG/JPEG/WebP) or a canvas `ImageData`, and loads the decoder on first use — `ready({ decoder: true })` warms it early.
 
-`decode` accepts a `Uint8Array` of encoded image bytes (PNG / JPEG / WebP) or a
-canvas `ImageData`. It loads the decoder WASM module on first use; call
-`ready({ decoder: true })` to warm it up ahead of time.
+### Options
 
-### `GenerateOptions`
+| Option | Type | Default | |
+| --- | --- | --- | --- |
+| `size` | `number` | `320` | Output edge in px, **quiet zone included** |
+| `margin` | `number` | `4` | Quiet zone in modules (the spec asks for 4) |
+| `ecc` | `'L' \| 'M' \| 'Q' \| 'H'` | `'Q'` | Error correction |
+| `sizeMode` | `'exact' \| 'fit'` | `'exact'` | Hit `size` exactly, or the largest whole-module image below it |
+| `logoSpace` | `number` | `0` | Percent of the width to blank out for a logo |
 
-| Option     | Type                       | Default   | Description                                     |
-| ---------- | -------------------------- | --------- | ----------------------------------------------- |
-| `size`     | `number`                   | `320`     | Output edge length in px, quiet zone included   |
-| `margin`   | `number`                   | `4`       | Quiet zone in modules (the spec asks for 4)     |
-| `ecc`      | `'L' \| 'M' \| 'Q' \| 'H'` | `'Q'`     | Error correction level                          |
-| `sizeMode` | `'exact' \| 'fit'`         | `'exact'` | Hit `size` exactly, or the largest fit below it |
-| `logoSpace`| `number`                   | `0`       | Percent of the width to blank out for a logo    |
-
-`'exact'` gives you a `size` x `size` image. Modules always land on whole pixels
-— never scaled or blurred — and the pixels left over from integer scaling widen
-the quiet zone, which scanners prefer. `'fit'` returns the largest whole-module
-image that fits inside `size` instead, with no padding beyond `margin`.
+Modules always land on whole pixels, so codes never come out blurry. Under `'exact'` the pixels left over from integer scaling widen the quiet zone.
 
 ### Errors
 
@@ -148,97 +81,52 @@ Every failure is an `Error` with a `code` you can branch on:
 try {
   await generatePng(payload, { ecc: "H" });
 } catch (err) {
-  if (err.code === "PAYLOAD_TOO_LONG") {
-    await generatePng(payload, { ecc: "L" }); // more capacity
-  }
+  if (err.code === "PAYLOAD_TOO_LONG") await generatePng(payload, { ecc: "L" });
 }
 ```
 
-`EMPTY_TEXT`, `PAYLOAD_TOO_LONG`, `INVALID_SIZE`, `INVALID_MARGIN`,
-`INVALID_OPTION`, `LOGO_SPACE_TOO_LARGE`, `ENCODE_FAILED`, `PNG_FAILED`,
-`QR_NOT_FOUND`, `INVALID_IMAGE`, `UNSUPPORTED_FORMAT`, `QR_CORRUPT`.
+`EMPTY_TEXT` · `PAYLOAD_TOO_LONG` · `INVALID_SIZE` · `INVALID_MARGIN` · `INVALID_OPTION` · `LOGO_SPACE_TOO_LARGE` · `ENCODE_FAILED` · `PNG_FAILED` · `QR_NOT_FOUND` · `INVALID_IMAGE` · `UNSUPPORTED_FORMAT` · `QR_CORRUPT`
 
-### Logo in the centre
+---
 
-`logoSpace` blanks a centred square, as a percentage of the symbol width. Error
-correction reconstructs whatever the logo hides, so the request is **rejected**
-with `LOGO_SPACE_TOO_LARGE` if it would spend more of that budget than the level
-can spare, or if the square would reach the finder patterns a scanner needs to
-locate the code at all. Practical ceilings: 18% at `L`, 27% at `M`, 35% at `Q`
-and `H` — and a higher level leaves more headroom for glare and creases, so
-`ecc: 'H'` is the right default here.
+## React
+
+```tsx
+import { useGenerate } from "@wirunrom/hqr-generate/react";
+
+function Ticket({ url }: { url: string }) {
+  const { src, error } = useGenerate(url, { size: 320 });
+  if (error) return <p>{String(error)}</p>;
+  return <img src={src ?? undefined} width={320} height={320} alt="QR code" />;
+}
+```
+
+`useGenerate` (PNG + a managed object URL) · `useGenerateSvg` · `useGenerateModules` (raw grid) · `useDecode` · `useQrScanner`
+
+Hooks track the individual option fields, so an inline `{ size: 320 }` doesn't re-run WASM on every render.
+
+---
+
+## Recipes
+
+<details>
+<summary><b>Logo in the centre</b></summary>
+
+`logoSpace` blanks a centred square, as a percent of the symbol width. Error correction rebuilds whatever the logo hides, so a request is **rejected** with `LOGO_SPACE_TOO_LARGE` if it would spend more of that budget than the level can spare, or if the square would reach the finder patterns a scanner needs to locate the code at all. Use `ecc: 'H'`; the ceiling is ~35% there, and lower on small symbols.
 
 ```js
-// SVG: the logo is drawn for you, fitted inside the reserved square.
+// SVG: the logo is drawn for you, fitted inside the reserved square
 const svg = await generateSvg(url, { ecc: "H", logoSpace: 24, logo: "/logo.svg" });
 
-// PNG: the space is reserved, you composite the image.
+// PNG: the space is reserved, you composite the image
 const { logo } = await generateModules(url, { ecc: "H", logoSpace: 24 });
 ctx.drawImage(img, logo.x, logo.y, logo.size, logo.size);
 ```
 
-PNG output does not embed the logo itself, because decoding images inside the
-encoder build is exactly what would take it from 85 KB back to hundreds.
+</details>
 
-### Decoding with positions
-
-`decodeAll` returns every code in the image along with its pixel corners —
-enough to draw an overlay, or to work out which of several codes the user meant.
-
-```js
-for (const { text, corners } of await decodeAll(imageData)) {
-  drawOutline(corners); // [top-left, top-right, bottom-right, bottom-left]
-}
-```
-
-### Rendering it yourself
-
-`generateModules` returns the grid before rasterization, so you can draw into a
-canvas, emit an inline `<svg>` that inherits `currentColor`, or hand the data to
-a PDF or native renderer:
-
-```js
-const { n, scale, size, origin, dark } = await generateModules(text, { size: 240 });
-
-ctx.fillStyle = "#000";
-for (let y = 0; y < n; y++) {
-  for (let x = 0; x < n; x++) {
-    if (dark[y * n + x]) {
-      ctx.fillRect(origin + x * scale, origin + y * scale, scale, scale);
-    }
-  }
-}
-```
-
----
-
-## Payload builders
-
-`@wirunrom/hqr-generate/payload` is pure string building — no WASM is loaded.
-
-```js
-import { promptpay, wifi, mecard, otpauth } from "@wirunrom/hqr-generate/payload";
-
-await generatePng(wifi({ ssid: "Cafe Wi-Fi", password: "hunter2" }));
-await generatePng(promptpay({ target: "081-234-5678", amount: 250 }), { ecc: "M" });
-```
-
-`wifi`, `mecard`, `vcard`, `mailto`, `sms`, `tel`, `geo`, `otpauth`, `promptpay`.
-
-Each one escapes its own separators, which is the part that silently breaks
-hand-rolled payloads: an SSID containing `;` splits the record, and a PromptPay
-payload with a wrong CRC scans perfectly and then does nothing.
-
-**PromptPay** builds an EMVCo merchant-presented payload (THB). `target` takes a
-mobile number, a 13-digit national/tax ID, or a 15-digit e-wallet ID; pass
-`type` to disambiguate. An `amount` switches the point-of-initiation tag from
-static (`11`) to dynamic (`12`). The structure and its CRC-16/CCITT-FALSE
-checksum are covered by tests; verify against your own bank app before going to
-production.
-
----
-
-## Camera scanning
+<details>
+<summary><b>Camera scanning</b></summary>
 
 ```js
 import { createScanner } from "@wirunrom/hqr-generate/scanner";
@@ -247,167 +135,77 @@ const scanner = await createScanner({
   video: document.querySelector("video"),
   onResult: ({ text }) => console.log(text),
 });
-// later
 scanner.stop();
 ```
 
-Frames are pulled with `requestVideoFrameCallback` where available, downscaled
-to 640 px before decoding, throttled to one attempt every 120 ms, and repeated
-hits on the same text are suppressed for 1.5 s. All four are options. Decoding
-runs on the main thread — raise `scanIntervalMs` before reaching for a worker.
+Frames come from `requestVideoFrameCallback` where available, downscaled to 640 px, one decode attempt every 120 ms, repeat hits suppressed for 1.5 s — all adjustable. Needs a secure context (https or localhost); rejects with `CAMERA_DENIED` or `CAMERA_UNAVAILABLE`.
 
-Needs a secure context (https or localhost). Rejects with `CAMERA_DENIED` or
-`CAMERA_UNAVAILABLE`.
+In React, `useQrScanner()` returns a `videoRef` to attach and releases the camera on unmount.
 
----
+</details>
 
-## React
+<details>
+<summary><b>Payload builders (Wi-Fi, contacts, PromptPay…)</b></summary>
 
-```tsx
-import {
-  useGenerate,
-  useGenerateSvg,
-  useGenerateModules,
-  useDecode,
-  useQrScanner,
-} from "@wirunrom/hqr-generate/react";
+```js
+import { promptpay, wifi } from "@wirunrom/hqr-generate/payload";
 
-function Ticket({ url }: { url: string }) {
-  const { src, loading, error } = useGenerate(url, { size: 320 });
+await generatePng(wifi({ ssid: "Cafe Wi-Fi", password: "hunter2" }));
+await generatePng(promptpay({ target: "081-234-5678", amount: 250 }), { ecc: "M" });
+```
 
-  if (error) return <p>{String(error)}</p>;
-  return <img src={src ?? undefined} width={320} height={320} alt="QR code" />;
+`wifi` · `mecard` · `vcard` · `mailto` · `sms` · `tel` · `geo` · `otpauth` · `promptpay`
+
+Plain strings, no WASM loaded. Each escapes its own separators — the failure mode otherwise is a code that scans fine and then does nothing. **PromptPay** builds an EMVCo payload (THB) from a mobile number, a 13-digit national/tax ID or a 15-digit e-wallet ID; adding an `amount` switches it from static to dynamic.
+
+</details>
+
+<details>
+<summary><b>Rendering the grid yourself</b></summary>
+
+`generateModules` returns the symbol before rasterization — for canvas, an inline `<svg>` that inherits `currentColor`, PDF, or native.
+
+```js
+const { n, scale, origin, dark } = await generateModules(text, { size: 240 });
+
+for (let y = 0; y < n; y++) {
+  for (let x = 0; x < n; x++) {
+    if (dark[y * n + x]) ctx.fillRect(origin + x * scale, origin + y * scale, scale, scale);
+  }
 }
 ```
 
-- `useGenerate` — PNG bytes plus a ready-to-use object URL (`src`), revoked on cleanup
-- `useGenerateSvg` — SVG markup plus an object URL
-- `useGenerateModules` — the raw grid, with no Blob or URL lifetime to manage
-- `useDecode` — takes `ImageData`
-- `useQrScanner` — camera scanning; returns a `videoRef` to attach and releases the camera on unmount
+`decodeAll` returns every code in an image with its pixel corners, for overlays.
 
-```tsx
-function Scanner() {
-  const { videoRef, result, error } = useQrScanner({ onResult: (r) => console.log(r.text) });
-  if (error) return <p>{String(error)}</p>;
-  return (
-    <>
-      <video ref={videoRef} playsInline muted />
-      {result && <p>{result.text}</p>}
-    </>
-  );
-}
-```
-
-The hooks track the individual option fields rather than the `opts` object, so
-an inline `{ size: 320 }` does not re-run WASM on every render.
+</details>
 
 ---
 
-## Bundle size
+## Size & speed
 
-The encoder and decoder are separate WASM modules. Loading is lazy on both
-sides: nothing is fetched until the first call (or `ready()`), and the decoder
-is only fetched if you call `decode`.
+| | Download | |
+| --- | --- | --- |
+| Encoder | **85 KB gz** | loaded on first `generate*` or `ready()` |
+| Decoder | 280 KB gz | only if you call `decode` |
 
-| Module                        | Raw    | Gzipped   |
-| ----------------------------- | ------ | --------- |
-| Encoder (`generate*`)         | 178 KB | **85 KB** |
-| Decoder (`decode*`, opt-in)   | 597 KB | 280 KB    |
-| `/payload` (opt-in, plain JS) | 11 KB  | 4 KB      |
-| `/scanner` (opt-in, plain JS) | 6 KB   | 2 KB      |
-| `/react` hooks                | 9 KB   | 2 KB      |
-
-Those are the browser numbers — what a visitor actually downloads. The Node
-builds carry the same binaries inlined as base64, which costs about 30% more on
-disk and almost nothing after gzip; nothing is fetched over a network there.
-
-For comparison, 0.5.0 shipped a single 1.4 MB binary (580 KB gzipped) that every
-page had to download, encoder and decoder together, because the `image` crate
-was pulled in with every codec it supports — TIFF, DDS, OpenEXR, HDR and the
-rest — none of which a QR scanner ever sees.
-
-`npm run size` prints this table and fails if a binary crosses its budget; CI
-runs it on every push.
-
----
-
-## Performance
-
-Benchmarked on Apple Silicon (release + LTO), typical URL payload at `size: 320`:
-
-| Pipeline                        | Time   | Output size |
-| ------------------------------- | ------ | ----------- |
-| `generatePng` → 1-bit PNG       | ~86 µs | 1.9 KB      |
-| `generateSvg` → single `<path>` | ~86 µs | 5.2 KB      |
-
-Most of that is the QR encoding itself (~65 µs); rendering costs ~20 µs for PNG
-and ~8 µs for SVG. For comparison, the legacy 8-bit raster path takes ~124 µs
-and produces a larger file, and the pre-0.5 per-module `<rect>` SVG was 143 KB
-against today's 5.2 KB.
-
-Behind the numbers: QR encoding via [`fast_qr`](https://crates.io/crates/fast_qr),
-rasterization straight into a 1-bit PNG scanline buffer (no 8-bit intermediate),
-run-length-merged SVG subpaths with relative commands, and a decoder that
-computes luminance inside the `rqrr` callback rather than materializing a
-grayscale buffer.
-
-Run the suite with `npm run bench`.
+Generating a typical URL at 320 px takes **~86 µs** and produces a 1.9 KB PNG or a 5.2 KB SVG (Apple Silicon, release + LTO). Run `npm run bench` for the full suite.
 
 ---
 
 ## Development
 
-Requires a Rust toolchain with the `wasm32-unknown-unknown` target, plus
-[`wasm-pack`](https://rustwasm.github.io/wasm-pack/).
+Needs a Rust toolchain with `wasm32-unknown-unknown`, plus [`wasm-pack`](https://rustwasm.github.io/wasm-pack/).
 
 ```bash
-npm run build        # 4 WASM builds, binary inlining, React types
-npm test             # cargo tests + package smoke tests
-npm run lint         # rustfmt + clippy
-npm run size         # bundle size budget
-npm run bench        # criterion benchmarks
+npm run build   # 4 WASM builds, binary inlining, React types
+npm test        # 33 Rust tests + 40 package tests
+npm run lint    # rustfmt + clippy
+npm run size    # bundle size budget (CI fails if a binary bloats)
 ```
 
-`tests/browser.html` is a browser smoke test for the local build — serve the
-repo over HTTP (WASM will not load from `file://`) and open it.
+`tests/browser.html` is a browser smoke test — serve over HTTP, WASM won't load from `file://`. [`tests/my-app`](./tests/my-app) is a Next.js fixture that installs the packed tarball and imports by package name; it covers client hooks, SSR, a route handler, and the scanner with a simulated camera.
 
-`tests/my-app` is a Next.js app that consumes the package the way a user does —
-through the `exports` map, from an installed tarball rather than a relative
-path, which is the only way to catch resolution and bundling problems. It covers
-client hooks, a Server Component, a Route Handler and the camera scanner:
-
-```bash
-npm run build && npm pack --ignore-scripts
-cd tests/my-app
-npm install && npm install ../../wirunrom-hqr-generate-0.6.0.tgz
-npm run dev
-```
-
-Then open `/` (client checks), `/ssr` (server rendering), `/api/qr?text=hi`
-(route handler) and `/scan`.
-
-`/scan` has a **simulated camera** button: it feeds the scanner a
-`canvas.captureStream()`, which is a real `MediaStream`, so the whole path —
-frame pump, downscale, decode, de-duplication, teardown — runs on a machine with
-no camera. For the real thing on a phone you need https (a tunnel, or
-`next dev --experimental-https`).
-
-Re-run the two install lines after every `npm pack` — npm copies the tarball
-contents, it does not link them.
-
-### Cargo features
-
-| Feature    | Contents                                          |
-| ---------- | ------------------------------------------------- |
-| `generate` | QR encoding + PNG/SVG rendering (default)         |
-| `decode`   | QR decoding (`image` + `rqrr`)                    |
-| `wasm`     | JS bindings for whichever of the above are on     |
-
-The npm package builds `wasm,generate` and `wasm,decode` separately — that
-separation is what keeps the encoder at 85 KB.
-
----
+Architecture notes live in [CLAUDE.md](./CLAUDE.md).
 
 ## License
 
