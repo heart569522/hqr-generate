@@ -1,8 +1,9 @@
+# Build output. `npm run build` regenerates both; `npm run clean` removes them.
 /target
 /pkg
-/node_modules
+/react
 
-# Manual browser/Next.js smoke apps — not part of the published package.
+/node_modules
 /tests/my-app/node_modules
 /tests/my-app/.next
 /tests/my-app/package-lock.json
@@ -10,5 +11,8 @@
 # Local tarballs from `npm pack`.
 *.tgz
 
+# Local editor / agent config, and the registry file that carries a token.
+/.claude
 .npmrc.github
+
 .DS_Store

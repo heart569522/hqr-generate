@@ -47,15 +47,34 @@ jobs:
           fi
 
       - name: Publish to npm
-        run: npm publish --access public --provenance
+        id: publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+
+          # npm does not infer the dist-tag from a prerelease version: without
+          # this, pushing v0.7.0-next.0 would make it `latest` for everyone.
+          case "$version" in
+            *-*) dist_tag=next ;;
+            *)   dist_tag=latest ;;
+          esac
+          echo "prerelease=$([ "$dist_tag" = next ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "Publishing $version to dist-tag $dist_tag"
+
+          # --ignore-scripts publishes exactly the tree the steps above built,
+          # size-checked and tested. Without it `prepack` would wipe pkg/ and
+          # rebuild, so the tarball would not be the one that was verified — and
+          # `postpublish` would try to push from the runner's detached HEAD and
+          # fail the step after the package was already live.
+          npm publish --access public --provenance --tag "$dist_tag" --ignore-scripts
 
       # Runs only after npm accepted the package, so a failed publish never
       # leaves a release pointing at a version nobody can install.
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRERELEASE: ${{ steps.publish.outputs.prerelease == 'true' && '--prerelease' || '' }}
         run: |
           notes=".github/release-notes/${GITHUB_REF_NAME}.md"
 
@@ -66,11 +85,11 @@ jobs:
             gh release create "$GITHUB_REF_NAME" \
               --title "$title" \
               --notes-file /tmp/release-body.md \
-              --verify-tag
+              --verify-tag $PRERELEASE
           else
             echo "::warning::no .github/release-notes/${GITHUB_REF_NAME}.md — falling back to generated notes"
             gh release create "$GITHUB_REF_NAME" \
               --title "$GITHUB_REF_NAME" \
               --generate-notes \
-              --verify-tag
+              --verify-tag $PRERELEASE
           fi

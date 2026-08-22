@@ -111,4 +111,5 @@ Compiled separately via `tsconfig.react.json`. `react` is an optional peer depen
 - When touching the WASM API surface, changes must propagate through: `src/wasm.rs` → `internal/options.js` → `index.web.js` + `index.node.js` → `index.d.ts` + `index.node.d.ts` → `react-src/` hooks (incl. dep arrays) → `tests/node/`.
 - `wasm-opt` runs with `--all-features` on purpose. Naming features by hand made it reject the module the moment wasm-bindgen emitted one more.
 - Anything user-visible that changes between versions goes in `CHANGELOG.md` **and** `MIGRATION.md`.
-- `pkg/`, `react/` are generated — never edit by hand.
+- `pkg/`, `react/` are generated and **gitignored** — never edit them, never commit them. `prepack` builds them into the tarball.
+- Releases are cut by pushing a `v*` tag; the workflow derives the npm dist-tag from the version, so `v0.7.0-next.0` lands on `next` and never on `latest`. It publishes with `--ignore-scripts` so the tarball is exactly the tree that CI built, size-checked and tested.

@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master, develop]
+    # `*.x` covers maintenance branches (0.5.x, 1.0.x) created from a tag when a
+    # released line needs a backport.
+    branches: [master, develop, "*.x"]
   pull_request:
   workflow_dispatch:
 

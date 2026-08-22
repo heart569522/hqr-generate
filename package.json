@@ -96,11 +96,10 @@
     "bench": "cargo bench --bench generate",
     "size": "node scripts/size-report.mjs",
     "prepack": "npm run clean && npm run build && npm run test:node",
-    "release:test": "npm version prerelease --preid=next && npm run publish:test",
     "publish:test": "npm publish --tag next --registry=https://registry.npmjs.org --access public",
     "publish:npm": "npm publish --registry=https://registry.npmjs.org --access public",
     "publish:github": "npm publish --registry=https://npm.pkg.github.com --userconfig .npmrc.github --access public",
-    "postpublish": "git push --follow-tags"
+    "version:next": "npm version prerelease --preid=next -m \"chore: %s\""
   },
   "keywords": [
     "qrcode",
