@@ -93,6 +93,12 @@ appears in 23 files for npm alone and 39 once the crate and repo are included.
 
 ### Added
 
+- **The scanner reads barcodes**, with `formats: "any"`. Results are normalised
+  across both decoders onto `{ text, format, points }`, so switching the option
+  does not change the shape `onResult` receives; `version` and `eccLevel` stay
+  available on QR read through the QR-only path. `useScanner` takes the same
+  option in React and Vue.
+- **`useDecodeAny`** in both wrapper layers, the counterpart to `useDecode`.
 - **Barcode decoding**, through `decodeAny` and `decodeAnyAll` — QR, DataMatrix,
   Aztec, PDF417 and the 1D formats, each result carrying the symbology that was
   recognised and where it sits in the image.

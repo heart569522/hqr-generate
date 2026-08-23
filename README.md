@@ -154,7 +154,7 @@ Both expose the same five: | QR | Barcode | Both |
 | --- | --- | --- |
 | `useQr` | `useBarcode` | `useDecode` |
 | `useQrSvg` | `useBarcodeSvg` | `useScanner` |
-| `useQrModules` | `useBarcodeModules` | |
+| `useQrModules` | `useBarcodeModules` | `useDecodeAny` |
 
 `useQr` and `useBarcode` return `{ src, bytes, error, loading }` — `src` is a
 managed object URL, revoked for you. The `*Svg` pair returns markup, the

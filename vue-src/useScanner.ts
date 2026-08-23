@@ -2,13 +2,18 @@ import { onScopeDispose, ref, shallowRef, toValue, watch } from "vue";
 import { createScanner } from "../scanner.js";
 import { isBrowser } from "./shared.js";
 import type { MaybeRefOrGetter, Ref } from "vue";
-import type { DecodedQr } from "../index";
+import type { ScanResult } from "../scanner";
 
 export interface UseQrScannerOptions {
   /** Start the camera. Set false to release it without unmounting. */
   enabled?: MaybeRefOrGetter<boolean>;
   /** Called for every code seen, after de-duplication. */
-  onResult?: (result: DecodedQr) => void;
+  onResult?: (result: ScanResult) => void;
+  /**
+   * `'any'` reads barcodes as well as QR, at roughly twice the decoder
+   * download. Changing it restarts the camera, because the decoder changes.
+   */
+  formats?: MaybeRefOrGetter<"qr" | "any">;
   facingMode?: MaybeRefOrGetter<"environment" | "user">;
   deviceId?: MaybeRefOrGetter<string | undefined>;
   /** Minimum gap between decode attempts. Default 120 ms. */
@@ -35,7 +40,7 @@ export interface UseQrScannerOptions {
 export function useScanner(opts: UseQrScannerOptions = {}) {
   // Named `video` so `<video ref="video">` binds by convention in <script setup>.
   const video = ref<HTMLVideoElement | null>(null) as Ref<HTMLVideoElement | null>;
-  const result = shallowRef<DecodedQr | null>(null);
+  const result = shallowRef<ScanResult | null>(null);
   const error = ref<unknown>(null);
   const running = ref(false);
 
@@ -51,6 +56,7 @@ export function useScanner(opts: UseQrScannerOptions = {}) {
     () => [
       toValue(opts.enabled ?? true),
       video.value,
+      toValue(opts.formats ?? "qr"),
       toValue(opts.facingMode ?? "environment"),
       toValue(opts.deviceId),
       toValue(opts.scanIntervalMs),
@@ -69,12 +75,13 @@ export function useScanner(opts: UseQrScannerOptions = {}) {
       try {
         const started = await createScanner({
           video: element as HTMLVideoElement,
+          formats: toValue(opts.formats ?? "qr"),
           facingMode: toValue(opts.facingMode ?? "environment"),
           deviceId: toValue(opts.deviceId),
           scanIntervalMs: toValue(opts.scanIntervalMs),
           maxSide: toValue(opts.maxSide),
           dedupeMs: toValue(opts.dedupeMs),
-          onResult: (r: DecodedQr) => {
+          onResult: (r: ScanResult) => {
             result.value = r;
             // Read through the options object rather than capturing the
             // callback, so replacing it does not require restarting the camera.

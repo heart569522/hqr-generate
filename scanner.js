@@ -9,7 +9,7 @@
 // default 640 px working size that is a few milliseconds per frame; raise the
 // interval before reaching for a worker.
 
-import { decodeAll } from "./index.web.js";
+import { decodeAll, decodeAnyAll } from "./index.web.js";
 
 function scannerError(code, message, cause) {
   const err = new Error(message);
@@ -54,12 +54,28 @@ async function openCamera({ facingMode, deviceId }) {
 }
 
 /**
+ * Normalize the two decoders onto one result shape, so `onResult` does not
+ * change meaning when `formats` does. QR-only results keep their extra fields.
+ */
+function normalize(result) {
+  if (result.points) return result;
+  return {
+    text: result.text,
+    format: "qr",
+    points: result.corners,
+    version: result.version,
+    eccLevel: result.eccLevel,
+  };
+}
+
+/**
  * Start scanning into `video`, calling `onResult` for each code seen.
  *
  * @param {{
  *   video: HTMLVideoElement,
- *   onResult: (result: { text: string, version: number, corners: {x:number,y:number}[] }) => void,
+ *   onResult: (result: { text: string, format: string, points: {x:number,y:number}[] }) => void,
  *   onError?: (error: Error) => void,
+ *   formats?: 'qr' | 'any',
  *   facingMode?: 'environment' | 'user',
  *   deviceId?: string,
  *   scanIntervalMs?: number,
@@ -72,6 +88,7 @@ export async function createScanner({
   video,
   onResult,
   onError,
+  formats = "qr",
   facingMode = "environment",
   deviceId,
   scanIntervalMs = 120,
@@ -84,6 +101,13 @@ export async function createScanner({
   if (typeof onResult !== "function") {
     throw scannerError("INVALID_OPTION", "createScanner needs an onResult callback");
   }
+  if (formats !== "qr" && formats !== "any") {
+    throw scannerError("INVALID_OPTION", `formats must be 'qr' or 'any', received ${formats}`);
+  }
+
+  // 'any' reads barcodes too, at roughly twice the decoder download. Resolved
+  // once here rather than per frame.
+  const decodeFrame = formats === "any" ? decodeAnyAll : decodeAll;
 
   const stream = await openCamera({ facingMode, deviceId });
 
@@ -122,9 +146,9 @@ export async function createScanner({
 
     onResult({
       ...result,
-      // Report corners in the video's own coordinates, not the scaled-down
+      // Report positions in the video's own coordinates, not the scaled-down
       // buffer we decoded — callers overlay them on the video element.
-      corners: result.corners.map((c) => ({ x: c.x / scale, y: c.y / scale })),
+      points: result.points.map((p) => ({ x: p.x / scale, y: p.y / scale })),
     });
   };
 
@@ -144,9 +168,9 @@ export async function createScanner({
     ctx.drawImage(video, 0, 0, w, h);
 
     try {
-      const results = await decodeAll(ctx.getImageData(0, 0, w, h));
+      const results = await decodeFrame(ctx.getImageData(0, 0, w, h));
       if (stopped) return;
-      for (const result of results) emit(result, scale);
+      for (const result of results) emit(normalize(result), scale);
     } catch (err) {
       // No code in frame is the normal case, not a failure worth reporting.
       if (err?.code === "QR_NOT_FOUND" || err?.code === "QR_CORRUPT") return;

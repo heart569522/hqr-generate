@@ -27,6 +27,8 @@
       import {
         decode,
         decodeAll,
+        decodeAny,
+        decodeAnyAll,
         qrMany,
         qrModules,
         qrPng,
@@ -228,11 +230,13 @@
           });
 
           assert(result.text === "scanner works", `decoded ${JSON.stringify(result.text)}`);
-          assert(result.corners.length === 4, "expected corner positions");
+          // The scanner normalises both decoders onto one shape: `points`.
+          assert(result.points.length === 4, "expected corner positions");
+          assert(result.format === "qr", "reported " + result.format);
           // Corners come back in video coordinates, not the downscaled buffer.
           assert(
-            result.corners.every((c) => c.x >= 0 && c.x <= m.size + 1),
-            "corners were not scaled back to the source resolution",
+            result.points.every((p) => p.x >= 0 && p.x <= m.size + 1),
+            "positions were not scaled back to the source resolution",
           );
         } finally {
           painting = false;
@@ -480,6 +484,91 @@
           revoked = true;
         }
         assert(revoked, "object URL should be revoked on unmount");
+      });
+
+      await check("scanner reads barcodes when asked to", async () => {
+        // formats: "any" swaps in the larger decoder. Same fake camera, a
+        // barcode on the canvas instead of a QR code.
+        const m = await barcodeModules("SCAN-ME-123", {
+          format: "code128",
+          moduleWidth: 4,
+          height: 160,
+          quiet: 12,
+        });
+
+        const canvas = document.createElement("canvas");
+        canvas.width = m.width;
+        canvas.height = m.height;
+        const ctx = canvas.getContext("2d");
+        const paintBars = () => {
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, m.width, m.height);
+          ctx.fillStyle = "#000";
+          for (let i = 0; i < m.bars.length; i++) {
+            if (m.bars[i]) ctx.fillRect(m.origin + i * m.moduleWidth, 0, m.moduleWidth, m.height);
+          }
+        };
+        paintBars();
+        const timer = setInterval(paintBars, 100);
+
+        const stream = canvas.captureStream(15);
+        const realDevices = navigator.mediaDevices;
+        Object.defineProperty(navigator, "mediaDevices", {
+          configurable: true,
+          value: { ...realDevices, getUserMedia: async () => stream },
+        });
+
+        const video = document.createElement("video");
+        document.getElementById("preview").append(video);
+
+        let scanner;
+        try {
+          const result = await new Promise((resolve, reject) => {
+            const t = setTimeout(() => reject(new Error("no result within 20s")), 20000);
+            createScanner({
+              video,
+              formats: "any",
+              scanIntervalMs: 80,
+              onResult: (r) => {
+                clearTimeout(t);
+                resolve(r);
+              },
+              onError: (e) => {
+                clearTimeout(t);
+                reject(e);
+              },
+            }).then((s) => {
+              scanner = s;
+            }, reject);
+          });
+
+          assert(result.text === "SCAN-ME-123", "decoded " + JSON.stringify(result.text));
+          assert(result.format === "code128", "reported format " + result.format);
+          assert(result.points.length >= 2, "expected positions");
+        } finally {
+          clearInterval(timer);
+          scanner?.stop();
+          video.remove();
+          Object.defineProperty(navigator, "mediaDevices", {
+            configurable: true,
+            value: realDevices,
+          });
+        }
+      });
+
+      await check("decodeAny reads both families from bytes", async () => {
+        const bar = await barcodePng("MIXED-1", {
+          format: "code128",
+          moduleWidth: 3,
+          height: 100,
+          quiet: 12,
+        });
+        assert((await decodeAny(bar)) === "MIXED-1", "barcode did not decode");
+
+        const qr = await qrPng("https://example.com/mixed");
+        const [r] = await decodeAnyAll(qr);
+        assert(r.text === "https://example.com/mixed", "qr did not decode");
+        assert(r.format === "qr", "reported " + r.format);
       });
 
       await check("errors carry a code", async () => {
