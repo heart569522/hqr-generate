@@ -36,6 +36,18 @@
   40 MP leaves room for any phone camera and most flatbed scans. A QR code needs
   a few hundred pixels across to read, not tens of thousands.
 
+### Removed
+
+- **The 0.5 snake_case aliases** `generate_png`, `generate_svg` and
+  `generate_modules`. Carrying something marked `@deprecated` into a 1.0 means
+  removing it in 2.0 or never; this picks. A test now pins the exported surface
+  so nothing creeps back in.
+- **`render_svg(&QrBitmap)`**, which emitted one `<rect>` per module — 143 KB
+  against the 5.2 KB the path renderer produces for the same code. Nothing
+  should have been calling it. The 8-bit raster API it belonged to
+  (`QrBitmap`, `rasterize`, `render_png`) stays: getting pixels is a real thing
+  to want, and the docs no longer call it "legacy".
+
 ### Changed
 
 - **Decoding converts to luma instead of RGBA** — a quarter of the memory, and
@@ -64,6 +76,16 @@
   to start from real images: random bytes never get past
   `image::guess_format`, so an unseeded run explores nothing. `npm run fuzz`
   runs it locally.
+- **A compatibility policy** in the README: what counts as public API, what each
+  version bump means, the MSRV rule, and the deliberate omissions — colour,
+  `decode`'s return shape, PNG logos — written down as decisions rather than
+  left as gaps.
+- **Browser tests run headless in CI.** The 14 assertions in
+  `tests/browser.html` cover what no Node test can reach — WASM over HTTP,
+  canvas round trips, object-URL lifetimes, a real `MediaStream`, Vue in a
+  mounted app — and until now ran only when someone opened the page.
+- **CI covers Windows and the declared MSRV.** `rust-version = "1.85"` was a
+  promise nothing verified.
 - `ROADMAP.md` — what has to be true before 1.0, and why.
 - `examples/decode_limits.rs` — the reproduction for the memory issue, kept as a
   runnable description of the threat model.

@@ -7,6 +7,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
+import * as pkg from "../../index.node.js";
 import {
   decode,
   decodeAll,
@@ -15,7 +16,6 @@ import {
   generateModules,
   generatePng,
   generateSvg,
-  generate_png,
   ready,
 } from "../../index.node.js";
 
@@ -147,12 +147,22 @@ test("errors carry a stable code", () => {
   );
 });
 
-test("0.5.x snake_case names still resolve", () => {
-  assert.equal(generate_png, generatePng);
-  assert.deepEqual(pngSize(generate_png("legacy name", { size: 200 })), {
-    width: 200,
-    height: 200,
-  });
+test("the public surface is exactly what 1.0 promises", () => {
+  // The 0.5 snake_case aliases are gone; nothing should have crept in either.
+  assert.deepEqual(
+    Object.keys(pkg).sort(),
+    [
+      "decode",
+      "decodeAll",
+      "generate",
+      "generateMany",
+      "generateModules",
+      "generatePng",
+      "generateSvg",
+      "ready",
+    ],
+    "unexpected change to the exported surface",
+  );
 });
 
 test("generateMany encodes a batch", () => {

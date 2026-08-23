@@ -99,7 +99,3 @@ export function decodeAll(input) {
   return decoder().decode_all(input);
 }
 
-// Snake_case names from 0.5.x. Deprecated, kept so existing code keeps working.
-export const generate_png = generatePng;
-export const generate_svg = generateSvg;
-export const generate_modules = generateModules;

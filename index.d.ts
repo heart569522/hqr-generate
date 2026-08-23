@@ -182,13 +182,3 @@ export function decodeAll(input: Uint8Array | ImageData): Promise<DecodedQr[]>;
  */
 export function ready(opts?: { decoder?: boolean }): Promise<void>;
 
-/* =========================================================
- * Deprecated aliases (0.5.x names)
- * ======================================================= */
-
-/** @deprecated use {@link generatePng} */
-export function generate_png(text: string, opts?: GenerateOptions): Promise<Uint8Array>;
-/** @deprecated use {@link generateSvg} */
-export function generate_svg(text: string, opts?: GenerateOptions): Promise<string>;
-/** @deprecated use {@link generateModules} */
-export function generate_modules(text: string, opts?: GenerateOptions): Promise<QrModules>;

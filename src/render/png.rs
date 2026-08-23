@@ -107,7 +107,11 @@ pub fn render_png_modules(m: &QrModules) -> Result<Vec<u8>, GenerateError> {
     Ok(out)
 }
 
-/// Legacy 8-bit grayscale path, for callers still going through [`QrBitmap`].
+/// Encode an 8-bit grayscale buffer as PNG.
+///
+/// The fast path never builds one of these — it rasterizes straight into 1-bit
+/// scanlines. This is for callers who already hold pixels: from
+/// [`crate::rasterize`], or from their own compositing.
 pub fn render_png(bitmap: &QrBitmap) -> Result<Vec<u8>, GenerateError> {
     let est = 256 + bitmap.pixels.len() / 4;
     let mut out = Vec::with_capacity(est);

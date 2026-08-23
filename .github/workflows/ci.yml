@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -43,6 +43,30 @@ jobs:
       # Each published WASM binary is built from one of these feature sets, so
       # they all have to compile on their own — not just the union of them.
       - name: Feature matrix
+        run: |
+          cargo check --no-default-features --features generate
+          cargo check --no-default-features --features decode
+          cargo check --no-default-features --features generate,decode
+
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # `rust-version` is a promise to consumers. Declaring it and never
+      # checking it means finding out from a bug report.
+      - name: Pin the declared MSRV
+        run: |
+          msrv="$(grep '^rust-version' Cargo.toml | cut -d'"' -f2)"
+          echo "Cargo.toml declares $msrv"
+          rustup toolchain install "$msrv" --profile minimal
+          rustup default "$msrv"
+          rustc --version
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build every feature set at the MSRV
         run: |
           cargo check --no-default-features --features generate
           cargo check --no-default-features --features decode
@@ -87,3 +111,12 @@ jobs:
 
       - name: Verify publish contents
         run: npm pack --dry-run --ignore-scripts
+
+      # The only place WASM is fetched over HTTP, canvases are real, object URLs
+      # can actually be revoked, and MediaStream exists. Nothing in Node reaches
+      # any of it.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: npm run test:browser

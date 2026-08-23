@@ -28,14 +28,19 @@ Two things still need real-world confirmation and cannot be replaced by tests:
 
 ## 0.7.0 — one breaking pass
 
-### Decisions to make (these need a call, not code)
+### Decisions, now made
 
-| | Question | Why it must be decided before 1.0 |
+| | Question | Answer |
 | --- | --- | --- |
-| 1 | Drop the deprecated `generate_png` / `generate_svg` / `generate_modules` aliases? | Shipping something marked `@deprecated` in a 1.0 means either removing it in 2.0 or never — decide which. |
-| 2 | Should `decode` return `DecodedQr` instead of `string`? | `decode` gives a string, `decodeAll` gives objects with `version`, `eccLevel` and `corners`. The asymmetry is the last genuinely breaking API question left. |
-| 3 | Keep `logo` as SVG-only? | PNG reserves the space but does not draw the image. Defensible — decoding images in the encoder build is what kept it at 85 KB — but it should be a stated decision, not an omission. |
-| 4 | Does `margin` stay at the spec's 4? | Real integrations use 2 because the surrounding UI is white. Either document that, or reconsider the default. |
+| 1 | Drop the deprecated `generate_png` / `generate_svg` / `generate_modules` aliases? | **Dropped.** They existed for 0.5 compatibility; carrying something marked `@deprecated` into a 1.0 means removing it in 2.0 or never. |
+| 2 | Should `decode` return `DecodedQr` instead of `string`? | **No.** `decode` is the "read the text" case and `decodeAll` is the complete one. Making the common path worse for symmetry is the wrong trade. Written down in the compatibility policy so it reads as a decision. |
+| 3 | Keep `logo` as SVG-only? | **Yes.** PNG reserves the space and the caller composites. Decoding images inside the encoder build is precisely what would take it from 85 KB back to hundreds. |
+| 4 | Does `margin` stay at the spec's 4? | **Yes.** Real integrations lower it to 2 because the surrounding UI is white, which is fine and now documented — but the default should be the one that is correct without knowing the page. |
+
+Also removed: `render_svg(&QrBitmap)`, which emitted one `<rect>` per module —
+143 KB against the 5.2 KB the path renderer produces for the same code. The
+8-bit raster API it belonged to stays; it is a real way to get pixels, and the
+docs no longer call it "legacy".
 
 ### Work
 
@@ -71,9 +76,9 @@ Two things still need real-world confirmation and cannot be replaced by tests:
   change what `createScanner` accepts — better in 0.7 than after the freeze.
 - ~~**Make the error enums `#[non_exhaustive]`.**~~ **Done.** Adding a variant
   after 1.0 would otherwise be a breaking change for every Rust consumer.
-- **Publish the crate to crates.io.** The Rust API is already clean and
-  documented; it costs one `cargo publish` and gives the encoder a second
-  audience. Do it before 1.0 so its API is frozen at the same time.
+- **Publish the crate to crates.io** — *blocked on the package name.* The Rust
+  API is ready, but publishing under a name that is about to change would burn
+  it. This waits for the rename.
 
 ---
 
@@ -91,11 +96,11 @@ If 0.7 is right, this release changes almost no code.
 
 **Exit criteria** — all of these, or it is not 1.0 yet:
 
-- [ ] Every question in the 0.7 decisions table is answered and shipped
+- [x] Every question in the decisions table is answered and shipped
 - [x] The decoder refuses oversized images before allocating for them
-- [ ] Fuzzing has run without a crash for a meaningful duration
-- [ ] Browser tests run in CI on every push
-- [ ] MSRV and Windows covered in CI
+- [x] Fuzzing has run without a crash for a meaningful duration
+- [x] Browser tests run in CI on every push
+- [x] MSRV and Windows covered in CI
 - [ ] PromptPay confirmed against a real banking app
 - [ ] The scanner confirmed on a real phone camera, iOS and Android
 - [ ] The maintainer's payment integration has run on 0.7.x without an API complaint

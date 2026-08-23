@@ -1,7 +1,7 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use hqr_generate::{
     GenerateOptions, generate_qr_bitmap, generate_qr_modules, render_png, render_png_modules,
-    render_svg, render_svg_modules,
+    render_svg_modules,
 };
 
 const OPTS: GenerateOptions = GenerateOptions {
@@ -30,8 +30,6 @@ fn bench_generate(c: &mut Criterion) {
 fn bench_svg(c: &mut Criterion) {
     let m_short = generate_qr_modules(SHORT, OPTS).unwrap();
     let m_long = generate_qr_modules(LONG, OPTS).unwrap();
-    let b_short = generate_qr_bitmap(SHORT, OPTS).unwrap();
-    let b_long = generate_qr_bitmap(LONG, OPTS).unwrap();
 
     let mut g = c.benchmark_group("svg");
     g.bench_function("modules/short", |b| {
@@ -39,12 +37,6 @@ fn bench_svg(c: &mut Criterion) {
     });
     g.bench_function("modules/long", |b| {
         b.iter(|| render_svg_modules(black_box(&m_long)))
-    });
-    g.bench_function("legacy-bitmap/short", |b| {
-        b.iter(|| render_svg(black_box(&b_short)))
-    });
-    g.bench_function("legacy-bitmap/long", |b| {
-        b.iter(|| render_svg(black_box(&b_long)))
     });
     g.finish();
 }
@@ -102,13 +94,11 @@ fn bench_output_size(c: &mut Criterion) {
     let bm = generate_qr_bitmap(URL, OPTS).unwrap();
 
     let svg_new = render_svg_modules(&m);
-    let svg_old = render_svg(&bm);
     let png_new = render_png_modules(&m).unwrap();
     let png_old = render_png(&bm).unwrap();
 
     eprintln!("---- output sizes (text: url, 320px) ----");
     eprintln!("svg (modules/path) : {} bytes", svg_new.len());
-    eprintln!("svg (legacy/rect)  : {} bytes", svg_old.len());
     eprintln!("png (1-bit)        : {} bytes", png_new.len());
     eprintln!("png (legacy 8-bit) : {} bytes", png_old.len());
     eprintln!("-----------------------------------------");

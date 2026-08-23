@@ -98,8 +98,8 @@ impl Default for GenerateOptions {
 
 /// 8-bit grayscale bitmap (0 = dark, 255 = light).
 ///
-/// Legacy representation. The fast paths rasterize straight from [`QrModules`];
-/// this is kept for callers that need a plain pixel buffer.
+/// Not on any fast path — the renderers rasterize straight from [`QrModules`].
+/// This is the representation for callers who want plain pixels.
 pub struct QrBitmap {
     pub width: u32,
     pub height: u32,

@@ -213,6 +213,52 @@ Generating a typical URL at 320 px takes **~86 µs** and produces a 1.9 KB PNG o
 
 ---
 
+## Compatibility
+
+What 1.0 promises, so you know what a version bump means.
+
+**Public API** is what the `exports` map names, and only that:
+`.`, `/react`, `/vue`, `/payload`, `/scanner`, `/web`, `/node`. Anything reached
+another way — `internal/`, `pkg/`, deep paths into the build output — is not
+public and can change in a patch.
+
+**Semver:**
+
+- **major** — removing or renaming an export, changing a signature, changing
+  what an existing option does, raising the MSRV, dropping a Node or browser
+  version
+- **minor** — new exports, new options, new error `code`s
+- **patch** — fixes, performance, dependency updates
+
+Two deliberate exceptions, both because refusing them would freeze real bugs:
+
+- A **security fix** can change behaviour in a minor release. The 40-megapixel
+  decode cap is the shape of this: it made previously-accepted input fail.
+- The **exact bytes** of a PNG or SVG are not API. Codec updates and rendering
+  improvements change them. What is guaranteed is that the output decodes to
+  what you encoded, at the size you asked for.
+
+**Rust:** MSRV is `rust-version` in `Cargo.toml`, checked by CI on every push.
+Raising it is a major. `GenerateError` and `DecodeError` are `#[non_exhaustive]`,
+so new variants are minor — match with a `_` arm.
+
+**Runtimes:** Node per `engines`. Browsers: anything with WebAssembly and ES
+modules. The camera scanner additionally needs `getUserMedia`, so a secure
+context.
+
+**Deliberate omissions**, so they read as decisions rather than gaps:
+
+- Output is black and white. Colour and module shapes trade scan reliability for
+  looks, and this library takes the other side of that trade.
+- `decode` returns a `string` while `decodeAll` returns objects. The common case
+  is "read the text"; `decodeAll` is there when you want positions, version and
+  ECC level.
+- `logo` draws only in SVG. PNG reserves the space and you composite. Decoding
+  images inside the encoder build is exactly what would take it from 85 KB to
+  hundreds.
+
+---
+
 ## Development
 
 Needs a Rust toolchain with `wasm32-unknown-unknown`, plus [`wasm-pack`](https://rustwasm.github.io/wasm-pack/).

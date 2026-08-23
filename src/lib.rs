@@ -36,7 +36,7 @@ pub use error::GenerateError;
 #[cfg(feature = "generate")]
 pub use render::png::{render_png, render_png_modules};
 #[cfg(feature = "generate")]
-pub use render::svg::{render_svg, render_svg_modules};
+pub use render::svg::{render_svg_modules, render_svg_modules_with_logo};
 
 #[cfg(feature = "decode")]
 pub use core::decode::{Corner, QrResult, decode, decode_all};

@@ -53,9 +53,4 @@ export function decodeAll(input: Uint8Array | ImageData): DecodedQr[];
  */
 export function ready(opts?: { decoder?: boolean }): Promise<void>;
 
-/** @deprecated use {@link generatePng} */
-export function generate_png(text: string, opts?: GenerateOptions): Uint8Array;
 /** @deprecated use {@link generateSvg} */
-export function generate_svg(text: string, opts?: GenerateOptions): string;
-/** @deprecated use {@link generateModules} */
-export function generate_modules(text: string, opts?: GenerateOptions): QrModules;

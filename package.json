@@ -101,6 +101,7 @@
     "build": "npm run build:wasm && npm run build:react && npm run build:vue",
     "test:rust": "cargo test --features decode",
     "test:node": "node --test tests/node/*.test.mjs",
+    "test:browser": "node scripts/browser-test.mjs",
     "test": "npm run test:rust && npm run test:node",
     "lint": "cargo fmt --all -- --check && cargo clippy --features decode --all-targets -- -D warnings",
     "bench": "cargo bench --bench generate",
@@ -135,6 +136,7 @@
   ],
   "devDependencies": {
     "@types/react": "^19.2.9",
+    "playwright": "^1.62.1",
     "react": "^19.2.4",
     "typescript": "^5.9.3",
     "vue": "^3.5.41"
