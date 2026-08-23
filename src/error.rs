@@ -8,7 +8,12 @@
 use core::fmt;
 
 /// Something went wrong while building or rendering a QR code.
+///
+/// `#[non_exhaustive]`: match with a `_` arm. New failure modes will be added
+/// over time, and adding one should not be a breaking change — callers branch
+/// on [`code`](GenerateError::code) anyway.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum GenerateError {
     /// `text` was empty. A QR code of nothing is not useful, and several
     /// scanners reject it outright, so we fail loudly instead.
@@ -75,8 +80,11 @@ impl fmt::Display for GenerateError {
 impl std::error::Error for GenerateError {}
 
 /// Something went wrong while reading a QR code out of an image.
+///
+/// `#[non_exhaustive]`: match with a `_` arm. See [`GenerateError`].
 #[cfg(feature = "decode")]
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum DecodeError {
     /// The image was readable but contained no decodable QR symbol.
     NotFound,
@@ -86,6 +94,16 @@ pub enum DecodeError {
     /// The bytes are an image format this build does not include a decoder for
     /// (only PNG, JPEG and WebP are compiled in).
     UnsupportedFormat,
+    /// The image is larger than the decoder is willing to allocate for. A tiny
+    /// compressed file can describe an enormous canvas, so the size is checked
+    /// against the header before any pixels are read.
+    ///
+    /// `pixels` is `None` when the underlying decoder refused it before the
+    /// dimensions were known.
+    ImageTooLarge {
+        pixels: Option<u64>,
+        max_pixels: u64,
+    },
     /// A QR symbol was located but its contents could not be recovered.
     Corrupt(String),
 }
@@ -98,6 +116,7 @@ impl DecodeError {
             Self::NotFound => "QR_NOT_FOUND",
             Self::InvalidImage => "INVALID_IMAGE",
             Self::UnsupportedFormat => "UNSUPPORTED_FORMAT",
+            Self::ImageTooLarge { .. } => "IMAGE_TOO_LARGE",
             Self::Corrupt(_) => "QR_CORRUPT",
         }
     }
@@ -112,6 +131,17 @@ impl fmt::Display for DecodeError {
             Self::UnsupportedFormat => {
                 f.write_str("image format not supported (build includes png, jpeg, webp)")
             }
+            Self::ImageTooLarge {
+                pixels: Some(pixels),
+                max_pixels,
+            } => write!(
+                f,
+                "image is {pixels} pixels, over the {max_pixels} limit; downscale it before decoding"
+            ),
+            Self::ImageTooLarge { max_pixels, .. } => write!(
+                f,
+                "image is over the decoder's {max_pixels} pixel limit; downscale it before decoding"
+            ),
             Self::Corrupt(msg) => write!(f, "QR code found but could not be read: {msg}"),
         }
     }

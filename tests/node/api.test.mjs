@@ -119,6 +119,24 @@ test("decode reads canvas-shaped ImageData too", () => {
   assert.equal(decode({ width: px, height: px, data }), "imagedata path");
 });
 
+test("oversized images are refused before anything is allocated", () => {
+  // A caller can hand us any width/height it likes. 30000x30000 would be a
+  // 900 MB luminance buffer; the cap has to bite before that is attempted.
+  assert.throws(
+    () => decode({ width: 30_000, height: 30_000, data: new Uint8ClampedArray(0) }),
+    (e) => e.code === "IMAGE_TOO_LARGE",
+  );
+
+  // Lopsided canvases must not sneak under a pixels-only budget.
+  assert.throws(
+    () => decode({ width: 1, height: 1_000_000, data: new Uint8ClampedArray(0) }),
+    (e) => e.code === "IMAGE_TOO_LARGE",
+  );
+
+  // ...and an ordinary image still works.
+  assert.equal(decode(generatePng("still fine", { size: 400 })), "still fine");
+});
+
 test("errors carry a stable code", () => {
   assert.throws(() => generatePng(""), (e) => e.code === "EMPTY_TEXT");
   assert.throws(() => generatePng("x", { size: 0 }), (e) => e.code === "INVALID_SIZE");

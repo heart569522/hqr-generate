@@ -129,6 +129,7 @@ export type HqrErrorCode =
   | "QR_NOT_FOUND"
   | "INVALID_IMAGE"
   | "UNSUPPORTED_FORMAT"
+  | "IMAGE_TOO_LARGE"
   | "QR_CORRUPT";
 
 /* =========================================================

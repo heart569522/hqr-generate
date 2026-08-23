@@ -3,6 +3,7 @@
 //! Run with `cargo test --features decode`.
 #![cfg(all(feature = "generate", feature = "decode"))]
 
+use hqr_generate::core::decode::MAX_DECODE_PIXELS;
 use hqr_generate::{
     DecodeInput, Ecc, GenerateOptions, QrBitmap, QrModules, SizeMode, decode, decode_all,
     generate_qr_modules, png as qr_png, render_png, render_png_modules,
@@ -262,6 +263,70 @@ fn decode_returns_the_first_of_several() {
     .unwrap();
     assert_eq!(one.text, "only one");
     assert_eq!(one.corners.len(), 4);
+}
+
+/// A compressed image is a description of a canvas, not the canvas itself.
+/// These inputs are small files that claim to be enormous pictures.
+#[test]
+fn oversized_images_are_refused_before_anything_is_allocated() {
+    for side in [8_000u32, 16_000] {
+        let png = render_png(&QrBitmap {
+            width: side,
+            height: side,
+            pixels: vec![255u8; (side as usize) * (side as usize)],
+        })
+        .unwrap();
+
+        let pixels = u64::from(side) * u64::from(side);
+        assert!(pixels > MAX_DECODE_PIXELS, "test input must exceed the cap");
+
+        let err = decode(DecodeInput::ImageBytes(&png)).unwrap_err();
+        assert_eq!(
+            err.code(),
+            "IMAGE_TOO_LARGE",
+            "{side}x{side} should be refused"
+        );
+    }
+}
+
+#[test]
+fn images_within_the_cap_still_decode() {
+    // 4000x4000 is 16 MP — a plausible camera photo, and well under the limit.
+    let text = "https://example.com/big-but-reasonable";
+    let m = generate_qr_modules(
+        text,
+        GenerateOptions {
+            size: 3_000,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let bytes = render_png_modules(&m).unwrap();
+
+    assert!(u64::from(m.img_size) * u64::from(m.img_size) < MAX_DECODE_PIXELS);
+    assert_eq!(decode(DecodeInput::ImageBytes(&bytes)).unwrap().text, text);
+}
+
+#[test]
+fn oversized_rgba_is_refused_too() {
+    // The caller controls width/height here, so the cap has to apply on this
+    // path as well — not just to encoded files.
+    let err = decode(DecodeInput::Rgba {
+        width: 30_000,
+        height: 30_000,
+        data: &[],
+    })
+    .unwrap_err();
+    assert_eq!(err.code(), "IMAGE_TOO_LARGE");
+
+    // A lopsided canvas that sneaks under the pixel budget is still refused.
+    let err = decode(DecodeInput::Rgba {
+        width: 1,
+        height: 1_000_000,
+        data: &[],
+    })
+    .unwrap_err();
+    assert_eq!(err.code(), "IMAGE_TOO_LARGE");
 }
 
 #[test]

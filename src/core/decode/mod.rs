@@ -2,6 +2,7 @@
 #![cfg(feature = "decode")]
 
 mod impl_;
+pub use impl_::MAX_DECODE_PIXELS;
 use impl_::{decode_all_from_bytes, decode_all_from_rgba};
 
 use crate::core::types::DecodeInput;

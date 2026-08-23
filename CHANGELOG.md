@@ -1,3 +1,41 @@
+## [Unreleased]
+
+### Security
+
+- **The decoder no longer trusts an image's declared size.** A compressed image
+  describes a canvas rather than containing one: a 1.2 MB PNG claiming
+  16000x16000 made the decoder allocate **976 MB** and spend 2.2 s of CPU before
+  concluding there was no QR code — roughly an 800x amplification from a file
+  anyone could upload. `image`'s own `max_alloc` limit did not prevent it,
+  because the largest allocation was this crate's `to_rgba8()` call, which that
+  accounting never sees.
+
+  Dimensions are now checked against the header before any pixels are read, and
+  anything over 40 megapixels is refused with the new `IMAGE_TOO_LARGE` code, in
+  well under a millisecond and with nothing allocated. The same cap applies to
+  raw RGBA input, where the caller supplies the dimensions directly, and to
+  lopsided canvases that would slip under a pixels-only budget.
+
+  40 MP leaves room for any phone camera and most flatbed scans. A QR code needs
+  a few hundred pixels across to read, not tens of thousands.
+
+### Changed
+
+- **Decoding converts to luma instead of RGBA** — a quarter of the memory, and
+  faster on legitimate images too (16 MP: 128 ms -> 101 ms, 61 MB -> 15 MB). The
+  colour channels were collapsed to luminance on the very next line anyway.
+- `GenerateError` and `DecodeError` are now `#[non_exhaustive]`, so adding a
+  failure mode after 1.0 will not be a breaking change for Rust consumers. Match
+  with a `_` arm.
+- The opt-in decoder binary grew by ~9 KB gzipped, which is the cost of the
+  bounded reader.
+
+### Added
+
+- `ROADMAP.md` — what has to be true before 1.0, and why.
+- `examples/decode_limits.rs` — the reproduction for the issue above, kept as a
+  runnable description of the threat model.
+
 ## [0.6.0] - 2026-08-23
 
 Everything from 0.5 still works — see [MIGRATION.md](./MIGRATION.md). The one
