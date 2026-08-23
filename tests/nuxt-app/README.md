@@ -23,7 +23,7 @@ npm run dev
 | `/`        | All four generate/decode composables, plus the core API, in the client |
 | `/ssr`     | `useAsyncData` on the server — QR markup arrives in the HTML           |
 | `/api/qr`  | A Nitro route handler returning PNG bytes from the sync Node build     |
-| `/scan`    | `useQrScanner`, with a canvas standing in for a camera                 |
+| `/scan`    | `useScanner`, with a canvas standing in for a camera                 |
 
 `/scan` needs a visible tab: both the fake camera and the scanner's frame pump
 stop in a background tab, which is a browser behaviour rather than a bug. The

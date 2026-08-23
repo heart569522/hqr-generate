@@ -1,32 +1,32 @@
 import { ref, shallowRef, toValue, watchEffect } from "vue";
-import { generateModules } from "../index.web.js";
-import { isBrowser, type MaybeRefOptions } from "./shared.js";
+import { barcodeModules } from "../index.web.js";
+import { isBrowser } from "./shared.js";
 import type { MaybeRefOrGetter } from "vue";
-import type { QrModules } from "../index";
+import type { BarcodeModules, BarcodeOptions } from "../index";
+
+type MaybeRefBarcodeOptions = {
+  [K in keyof BarcodeOptions]: MaybeRefOrGetter<BarcodeOptions[K]>;
+};
 
 /**
- * The module grid, for drawing the code yourself — a `<canvas>`, an inline
- * `<svg>` that inherits `currentColor`, a PDF.
- *
- * Nothing here allocates a Blob or an object URL, so there is no lifetime to
- * manage.
+ * The bar pattern, for drawing the barcode yourself. Nothing to revoke.
+ * The counterpart to {@link useQrModules}.
  */
-export function useGenerateModules(
+export function useBarcodeModules(
   text: MaybeRefOrGetter<string | undefined>,
-  opts: MaybeRefOptions = {},
+  opts: MaybeRefBarcodeOptions = {},
 ) {
-  const modules = shallowRef<QrModules | null>(null);
+  const modules = shallowRef<BarcodeModules | null>(null);
   const error = ref<unknown>(null);
   const loading = ref(false);
 
   watchEffect(async (onCleanup) => {
     const value = toValue(text);
     const options = {
-      size: toValue(opts.size),
-      margin: toValue(opts.margin),
-      ecc: toValue(opts.ecc),
-      sizeMode: toValue(opts.sizeMode),
-      logoSpace: toValue(opts.logoSpace),
+      format: toValue(opts.format),
+      moduleWidth: toValue(opts.moduleWidth),
+      height: toValue(opts.height),
+      quiet: toValue(opts.quiet),
     };
 
     if (!isBrowser || !value) return;
@@ -38,7 +38,7 @@ export function useGenerateModules(
 
     try {
       loading.value = true;
-      const result = await generateModules(value, options);
+      const result = await barcodeModules(value, options);
       if (!cancelled) {
         modules.value = result;
         error.value = null;

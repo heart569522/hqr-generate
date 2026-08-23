@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { generateBarcodeSvg } from "../index.web.js";
+import { barcodeSvg } from "../index.web.js";
 import type { BarcodeSvgOptions } from "../index";
 
 /**
@@ -30,7 +30,7 @@ export function useBarcodeSvg(text?: string, opts?: BarcodeSvgOptions) {
     (async () => {
       try {
         setLoading(true);
-        const markup = await generateBarcodeSvg(text, {
+        const markup = await barcodeSvg(text, {
           format,
           moduleWidth,
           height,

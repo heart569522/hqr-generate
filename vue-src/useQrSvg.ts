@@ -1,5 +1,5 @@
 import { onScopeDispose, ref, toValue, watchEffect } from "vue";
-import { generateSvg } from "../index.web.js";
+import { qrSvg } from "../index.web.js";
 import { isBrowser, type MaybeRefOptions } from "./shared.js";
 import type { MaybeRefOrGetter } from "vue";
 import type { SvgOptions } from "../index";
@@ -14,7 +14,7 @@ type MaybeRefSvgOptions = MaybeRefOptions & {
  * Prefer `svg` with `v-html` when you want the markup in the DOM — it scales
  * without blurring and inherits nothing from an `<img>` boundary.
  */
-export function useGenerateSvg(
+export function useQrSvg(
   text: MaybeRefOrGetter<string | undefined>,
   opts: MaybeRefSvgOptions = {},
 ) {
@@ -51,7 +51,7 @@ export function useGenerateSvg(
 
     try {
       loading.value = true;
-      const markup = await generateSvg(value, options);
+      const markup = await qrSvg(value, options);
       if (cancelled) return;
 
       release();

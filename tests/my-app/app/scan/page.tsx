@@ -8,7 +8,7 @@
 // canvas-backed MediaStream — use it when the machine has no camera.
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { useQrScanner } from "barqr/react";
+import { useScanner } from "barqr/react";
 import { promptpay } from "barqr/payload";
 import { installFakeCamera, type FakeCamera } from "./fake-camera";
 
@@ -65,7 +65,7 @@ export default function ScanPage() {
     void fake.current?.setText(SAMPLES[sample]);
   }, [sample]);
 
-  const { videoRef, result, error, running } = useQrScanner({
+  const { videoRef, result, error, running } = useScanner({
     enabled: mode !== "off" && ready,
     onResult: (r) =>
       setLog((prev) =>

@@ -1,5 +1,5 @@
 import { onScopeDispose, ref, shallowRef, toValue, watchEffect } from "vue";
-import { generatePng } from "../index.web.js";
+import { qrPng } from "../index.web.js";
 import { isBrowser, type MaybeRefOptions } from "./shared.js";
 import type { MaybeRefOrGetter } from "vue";
 
@@ -11,12 +11,12 @@ import type { MaybeRefOrGetter } from "vue";
  *
  * ```vue
  * <script setup>
- * const { src } = useGenerate(() => props.url, { size: 320 })
+ * const { src } = useQr(() => props.url, { size: 320 })
  * </script>
  * <template><img v-if="src" :src="src" alt="QR code"></template>
  * ```
  */
-export function useGenerate(
+export function useQr(
   text: MaybeRefOrGetter<string | undefined>,
   opts: MaybeRefOptions = {},
 ) {
@@ -55,7 +55,7 @@ export function useGenerate(
 
     try {
       loading.value = true;
-      const result = await generatePng(value, options);
+      const result = await qrPng(value, options);
       if (cancelled) return;
 
       release();

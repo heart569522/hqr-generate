@@ -12,14 +12,14 @@
     <div id="svg"></div>
 
     <script type="module">
-      import { generateSvg } from "https://esm.sh/barqr@0.6.0";
+      import { qrSvg } from "https://esm.sh/barqr@0.6.0";
 
       const btn = document.getElementById("btn");
       const input = document.getElementById("text");
       const container = document.getElementById("svg");
 
       btn.onclick = async () => {
-        const svg = await generateSvg(input.value, {
+        const svg = await qrSvg(input.value, {
           size: 256,
           ecc: "Q",
         });

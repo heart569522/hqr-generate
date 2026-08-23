@@ -6,7 +6,7 @@
 // This is also the path that broke in Next.js: Nitro bundles server code, and
 // wasm-pack's glue used to locate its binary through `__dirname`.
 const { data } = await useAsyncData("qr", async () => {
-  const { decode, generateModules, generatePng, generateSvg } = await import(
+  const { decode, qrModules, qrPng, qrSvg } = await import(
     "barqr"
   );
   const { promptpay } = await import("barqr/payload");
@@ -15,14 +15,14 @@ const { data } = await useAsyncData("qr", async () => {
   const payload = promptpay({ target: "081-234-5678", amount: 199.5 });
 
   return {
-    svg: generateSvg(url, { size: 200 }),
-    promptpaySvg: generateSvg(payload, { size: 200, ecc: "M" }),
+    svg: qrSvg(url, { size: 200 }),
+    promptpaySvg: qrSvg(payload, { size: 200, ecc: "M" }),
     payload,
     grid: (({ n, version, size }) => ({ n, version, size }))(
-      generateModules(url, { size: 200 }),
+      qrModules(url, { size: 200 }),
     ),
     // Proves the decoder loads and works inside Nitro too.
-    roundTrip: decode(generatePng(url)) === url,
+    roundTrip: decode(qrPng(url)) === url,
   };
 });
 </script>

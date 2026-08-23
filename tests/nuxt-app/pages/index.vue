@@ -2,21 +2,21 @@
 // Client-side surface. Every import goes through the package name, so this
 // exercises the real `exports` map the way a user's app would.
 import { ref, watchEffect } from "vue";
-import { decode, decodeAll, generateMany, generatePng } from "barqr";
+import { decode, decodeAll, qrMany, qrPng } from "barqr";
 import { promptpay, wifi } from "barqr/payload";
 import {
   useDecode,
-  useGenerate,
-  useGenerateModules,
-  useGenerateSvg,
+  useQr,
+  useQrModules,
+  useQrSvg,
 } from "barqr/vue";
 
 const text = ref("https://example.com/nuxt");
 const size = ref(240);
 
-const png = useGenerate(text, { size, ecc: "H" });
-const svg = useGenerateSvg(text, { size, ecc: "H", logoSpace: 20 });
-const grid = useGenerateModules(text, { size });
+const png = useQr(text, { size, ecc: "H" });
+const svg = useQrSvg(text, { size, ecc: "H", logoSpace: 20 });
+const grid = useQrModules(text, { size });
 
 // Feed useDecode the bytes the generator just produced.
 const source = ref<Uint8Array | undefined>();
@@ -38,33 +38,33 @@ onMounted(async () => {
     }
   };
 
-  await run("generatePng round trip", async () => {
-    const bytes = await generatePng("https://example.com/nuxt-direct", { size: 320 });
+  await run("qrPng round trip", async () => {
+    const bytes = await qrPng("https://example.com/nuxt-direct", { size: 320 });
     const back = await decode(bytes);
     if (back !== "https://example.com/nuxt-direct") throw new Error(back);
     return `${bytes.length} bytes`;
   });
 
-  await run("generateMany", async () => {
-    const batch = await generateMany(["a", "b", "c"], { size: 120 });
+  await run("qrMany", async () => {
+    const batch = await qrMany(["a", "b", "c"], { size: 120 });
     return `${batch.length} codes`;
   });
 
   await run("decodeAll positions", async () => {
-    const [first] = await decodeAll(await generatePng("positioned", { size: 300 }));
+    const [first] = await decodeAll(await qrPng("positioned", { size: 300 }));
     return `v${first.version}, ${first.corners.length} corners`;
   });
 
   await run("payload builders", async () => {
     const pp = promptpay({ target: "081-234-5678", amount: 250 });
-    if ((await decode(await generatePng(pp, { ecc: "M" }))) !== pp) throw new Error("mismatch");
+    if ((await decode(await qrPng(pp, { ecc: "M" }))) !== pp) throw new Error("mismatch");
     wifi({ ssid: "Cafe; Free", password: "hunter2" });
     return pp.slice(0, 24) + "…";
   });
 
   await run("typed errors", async () => {
     try {
-      await generatePng("x", { ecc: "L", logoSpace: 30 });
+      await qrPng("x", { ecc: "L", logoSpace: 30 });
     } catch (e) {
       const code = (e as { code?: string }).code;
       if (code !== "LOGO_SPACE_TOO_LARGE") throw new Error(String(code));
@@ -94,14 +94,14 @@ const failed = computed(() => checks.value?.filter((c) => !c.ok).length ?? 0);
     </ol>
 
     <p data-testid="composables">
-      useGenerate: {{ png.src.value ? "ok" : "…" }} ·
-      useGenerateSvg: {{ svg.svg.value ? "ok" : "…" }} ·
-      useGenerateModules: {{ grid.modules.value ? `${grid.modules.value.n}×${grid.modules.value.n}` : "…" }} ·
+      useQr: {{ png.src.value ? "ok" : "…" }} ·
+      useQrSvg: {{ svg.svg.value ? "ok" : "…" }} ·
+      useQrModules: {{ grid.modules.value ? `${grid.modules.value.n}×${grid.modules.value.n}` : "…" }} ·
       useDecode: {{ decoded.text.value ?? "…" }}
     </p>
 
     <div style="display: flex; gap: 1rem; align-items: start">
-      <img v-if="png.src.value" :src="png.src.value" width="140" alt="QR from useGenerate" />
+      <img v-if="png.src.value" :src="png.src.value" width="140" alt="QR from useQr" />
       <div v-if="svg.svg.value" style="width: 140px" v-html="svg.svg.value" />
     </div>
 

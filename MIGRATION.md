@@ -18,37 +18,46 @@ npm i barqr
 Then update your imports. Nothing else about them changes:
 
 ```diff
-- import { generatePng } from "@wirunrom/hqr-generate";
-+ import { generatePng } from "barqr";
+- import { qrPng } from "@wirunrom/hqr-generate";
++ import { qrPng } from "barqr";
 ```
 
 Every subpath keeps its name: `/react`, `/vue`, `/payload`, `/scanner`,
 `/web`, `/node`.
 
-### The API is almost entirely unchanged
+### 1. Every function is renamed
 
-All eight functions keep their names and signatures — `generate`,
-`generatePng`, `generateSvg`, `generateModules`, `generateMany`, `decode`,
-`decodeAll`, `ready` — and so does every option: `size`, `margin`, `ecc`,
-`sizeMode`, `logoSpace`, `logo`. The five React hooks are untouched.
-
-Three things actually differ.
-
-### 1. The snake_case aliases are gone
+The package does QR codes *and* 1D barcodes now, so `generate*` meaning "QR"
+was an accident of history. Each name says which family it belongs to:
 
 ```diff
+- generate(text, opts)            // removed: generate what?
 - generate_png(text, opts)
-+ generatePng(text, opts)
+- generatePng(text, opts)
++ qrPng(text, opts)
 
-- generate_svg(text, opts)
-+ generateSvg(text, opts)
-
-- generate_modules(text, opts)
-+ generateModules(text, opts)
+- generate_svg / generateSvg      →  qrSvg
+- generate_modules / generateModules → qrModules
+- generateMany                    →  qrMany
 ```
 
-They were 0.5 compatibility shims, marked deprecated in 0.6. Carrying something
-deprecated into a 1.0 means removing it in 2.0 or never.
+New alongside them: `barcodePng`, `barcodeSvg`, `barcodeModules`.
+`decode`, `decodeAll` and `ready` are unchanged — they were never QR-specific.
+
+Hooks and composables follow the same rule:
+
+```diff
+- useGenerate        →  useQr
+- useGenerateSvg     →  useQrSvg
+- useGenerateModules →  useQrModules
+- useQrScanner       →  useScanner    // it will read barcodes too
+```
+
+`useBarcode`, `useBarcodeSvg` and `useBarcodeModules` are new. `useDecode` is
+unchanged.
+
+Every option keeps its name: `size`, `margin`, `ecc`, `sizeMode`, `logoSpace`,
+`logo`. Only the function names moved.
 
 ### 2. Very large images are refused
 
@@ -160,11 +169,11 @@ Ask for the largest whole-module image that fits, and give it the size 0.5
 would have produced:
 
 ```js
-import { generateModules, generatePng } from "@wirunrom/hqr-generate";
+import { qrModules, qrPng } from "@wirunrom/hqr-generate";
 
-const { n } = await generateModules(text, { ecc: "Q" });
+const { n } = await qrModules(text, { ecc: "Q" });
 const legacySize = (n + 2 * 4) * Math.max(1, Math.floor(320 / n)); // what 0.5 returned
-const png = await generatePng(text, { size: legacySize, sizeMode: "fit" });
+const png = await qrPng(text, { size: legacySize, sizeMode: "fit" });
 ```
 
 `sizeMode: "fit"` also stands on its own: it returns the largest whole-module
@@ -243,18 +252,18 @@ camelCase names. They still work; the camelCase spelling is preferred.
 ## New in 0.6 (nothing to migrate, just available)
 
 - `sizeMode: "exact" | "fit"`.
-- `logoSpace` reserves a centre square for a logo, and `generateSvg` takes a
+- `logoSpace` reserves a centre square for a logo, and `qrSvg` takes a
   `logo` href to draw into it. Rejected with `LOGO_SPACE_TOO_LARGE` when error
   correction could not cover the loss.
-- `generateMany(texts, opts)` — batch encoding in one WASM call.
+- `qrMany(texts, opts)` — batch encoding in one WASM call.
 - `decodeAll(input)` — every code in the image, with pixel corners.
 - `@wirunrom/hqr-generate/payload` — `wifi`, `mecard`, `vcard`, `mailto`, `sms`,
   `tel`, `geo`, `otpauth`, `promptpay`.
 - `@wirunrom/hqr-generate/scanner` — `createScanner`, `listCameras`, plus the
-  `useQrScanner` React hook.
-- `generateModules(text, opts)` → `{ n, margin, scale, size, origin, version, dark, logo }`,
+  `useScanner` React hook.
+- `qrModules(text, opts)` → `{ n, margin, scale, size, origin, version, dark, logo }`,
   the raw grid, for rendering to canvas / inline `<svg>` / PDF yourself.
-- `useGenerateModules()` in `@wirunrom/hqr-generate/react`.
+- `useQrModules()` in `@wirunrom/hqr-generate/react`.
 - `ready({ decoder })` to preload the WASM up front.
 - The decoder is a **separate WASM module**, loaded only when `decode` is first
   called. A page that only generates QR codes downloads 85 KB gzipped instead of

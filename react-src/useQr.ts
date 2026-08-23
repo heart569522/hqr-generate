@@ -1,19 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { generateSvg } from "../index.web.js";
+import { qrPng } from "../index.web.js";
 import type { GenerateOptions } from "../index";
 
-export function useGenerateSvg(
-  text?: string,
-  opts?: GenerateOptions
-) {
-  const [svg, setSvg] = useState<string | null>(null);
+export function useQr(text?: string, opts?: GenerateOptions) {
+  const [bytes, setBytes] = useState<Uint8Array | null>(null);
   const [src, setSrc] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [loading, setLoading] = useState(false);
 
-  // Primitive deps so inline `opts` objects don't re-trigger WASM every render.
+  // Destructure so the effect only re-runs when actual values change.
+  // Passing the opts object directly caused a WASM re-run every render when
+  // callers inlined opts (e.g. `useQr(t, { size: 320 })`).
   const size = opts?.size;
   const margin = opts?.margin;
   const ecc = opts?.ecc;
@@ -29,15 +28,14 @@ export function useGenerateSvg(
       try {
         setLoading(true);
 
-        const markup = await generateSvg(text, { size, margin, ecc, sizeMode });
+        const result = await qrPng(text, { size, margin, ecc, sizeMode });
         if (cancelled) return;
 
-        setSvg(markup);
+        setBytes(result);
 
-        const blob = new Blob([markup], {
-          type: "image/svg+xml",
-        });
-
+        // Cast: Uint8Array is a valid BlobPart at runtime; TS's stricter
+        // dom lib flags SharedArrayBuffer variance here.
+        const blob = new Blob([result as BlobPart], { type: "image/png" });
         objectUrl = URL.createObjectURL(blob);
         setSrc(objectUrl);
       } catch (e) {
@@ -49,14 +47,16 @@ export function useGenerateSvg(
 
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
     };
   }, [text, size, margin, ecc, sizeMode]);
 
   return {
-    svg,
     src,
-    loading,
+    bytes,
     error,
+    loading,
   };
 }

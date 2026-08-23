@@ -29,13 +29,13 @@ export interface UseQrScannerOptions {
  * Live QR scanning from the device camera.
  *
  * ```tsx
- * const { videoRef, result, error } = useQrScanner({ onResult: (r) => console.log(r.text) });
+ * const { videoRef, result, error } = useScanner({ onResult: (r) => console.log(r.text) });
  * return <video ref={videoRef} playsInline muted />;
  * ```
  *
  * The camera is released on unmount and whenever `enabled` goes false.
  */
-export function useQrScanner(opts: UseQrScannerOptions = {}) {
+export function useScanner(opts: UseQrScannerOptions = {}) {
   const {
     enabled = true,
     onResult,
@@ -62,7 +62,7 @@ export function useQrScanner(opts: UseQrScannerOptions = {}) {
 
     const video = videoRef.current;
     if (!video) {
-      setError(new Error("useQrScanner: attach videoRef to a <video> element"));
+      setError(new Error("useScanner: attach videoRef to a <video> element"));
       return;
     }
 

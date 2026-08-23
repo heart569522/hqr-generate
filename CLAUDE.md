@@ -111,7 +111,7 @@ Compiled by `tsconfig.vue.json`. `vue` is an optional peer dependency (>=3.3, fo
 
 - **`watchEffect` runs during SSR**, unlike React's `useEffect`. Every composable is guarded by `isBrowser` in `vue-src/shared.ts`; without it a Nuxt page would `fetch()` the WASM binary while rendering on the server. `tests/node/vue-ssr.test.mjs` renders each composable through `vue/server-renderer` to keep that honest.
 - Options are read through `toValue` **inside** the effect, which is what makes the effect track each of them. Reading them outside would silently freeze the composable on its first values.
-- `useQrScanner` returns a ref named `video` so `<video ref="video">` binds by convention, and reads `opts.onResult` through the options object rather than capturing it — replacing the callback must not restart the camera.
+- `useScanner` returns a ref named `video` so `<video ref="video">` binds by convention, and reads `opts.onResult` through the options object rather than capturing it — replacing the callback must not restart the camera.
 - The compiled output imports a bare `vue` specifier. Bundlers resolve it; `tests/browser.html` needs an import map.
 
 ### React layer (`react-src/` → `react/`)
@@ -122,7 +122,7 @@ Compiled separately via `tsconfig.react.json`. `react` is an optional peer depen
 - Hooks pass `Uint8Array` directly to `new Blob([result as BlobPart], ...)` — no `ArrayBuffer` slice copy. The cast is for TS's `SharedArrayBuffer` variance only.
 - Object URLs are revoked in effect cleanup.
 - `useDecode` depends on `input` by identity **on purpose** — a camera feed produces frames with identical dimensions, so any shallow signature would decode only the first one.
-- `useQrScanner` holds `onResult` in a ref rather than a dep, so a fresh closure from the parent does not tear the camera down and re-request it on every render.
+- `useScanner` holds `onResult` in a ref rather than a dep, so a fresh closure from the parent does not tear the camera down and re-request it on every render.
 
 ## Conventions
 

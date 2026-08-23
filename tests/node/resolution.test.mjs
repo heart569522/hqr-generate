@@ -104,8 +104,8 @@ test("the browser builds still load their .wasm as an asset", async () => {
 
 test("require() of the package entry works", () => {
   const mod = require("../../index.node.js");
-  assert.equal(typeof mod.generate, "function");
-  assert.ok(mod.generate("required from cjs").length > 0);
+  assert.equal(typeof mod.qrPng, "function");
+  assert.ok(mod.qrPng("required from cjs").length > 0);
 });
 
 test("every file the package promises to ship exists", async () => {

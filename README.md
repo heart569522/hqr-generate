@@ -21,12 +21,16 @@ is the import path and nothing else.
 ## Quick start
 
 ```js
-import { generatePng, generateSvg, decode } from "barqr";
+import { qrPng, qrSvg, barcodePng, decode } from "barqr";
 
-const png = await generatePng("https://example.com", { size: 320 }); // Uint8Array, exactly 320×320
-const svg = await generateSvg("https://example.com", { size: 320 }); // '<svg …><path …/></svg>'
-const text = await decode(png);                                      // 'https://example.com'
+const png = await qrPng("https://example.com", { size: 320 });   // Uint8Array, exactly 320×320
+const svg = await qrSvg("https://example.com", { size: 320 });   // '<svg …><path …/></svg>'
+const bar = await barcodePng("SKU-0001", { format: "code128" }); // Uint8Array
+const text = await decode(png);                                  // 'https://example.com'
 ```
+
+Every name is `qr*` or `barcode*` — the two symbol families are peers, and the
+prefix tells you which one you are calling.
 
 To show it:
 
@@ -39,10 +43,10 @@ In Node the same imports are **synchronous** — the `exports` map picks a build
 
 ```ts
 // app/api/qr/route.ts — note the absence of await
-import { generatePng } from "barqr";
+import { qrPng } from "barqr";
 
 export function GET() {
-  return new Response(generatePng("https://example.com") as BodyInit, {
+  return new Response(qrPng("https://example.com") as BodyInit, {
     headers: { "content-type": "image/png" },
   });
 }
@@ -54,18 +58,18 @@ export function GET() {
 
 | | Browser | Node |
 | --- | --- | --- |
-| `generatePng(text, opts?)` | `Promise<Uint8Array>` | `Uint8Array` |
-| `generateSvg(text, opts?)` | `Promise<string>` | `string` |
-| `generateModules(text, opts?)` | `Promise<QrModules>` | `QrModules` |
-| `generateMany(texts, opts?)` | `Promise<Uint8Array[]>` | `Uint8Array[]` |
+| `qrPng(text, opts?)` | `Promise<Uint8Array>` | `Uint8Array` |
+| `qrSvg(text, opts?)` | `Promise<string>` | `string` |
+| `qrModules(text, opts?)` | `Promise<QrModules>` | `QrModules` |
+| `qrMany(texts, opts?)` | `Promise<Uint8Array[]>` | `Uint8Array[]` |
+| `barcodePng(text, opts?)` | `Promise<Uint8Array>` | `Uint8Array` |
+| `barcodeSvg(text, opts?)` | `Promise<string>` | `string` |
+| `barcodeModules(text, opts?)` | `Promise<BarcodeModules>` | `BarcodeModules` |
 | `decode(input)` | `Promise<string>` | `string` |
 | `decodeAll(input)` | `Promise<DecodedQr[]>` | `DecodedQr[]` |
-| `generateBarcodePng(text, opts?)` | `Promise<Uint8Array>` | `Uint8Array` |
-| `generateBarcodeSvg(text, opts?)` | `Promise<string>` | `string` |
-| `generateBarcodeModules(text, opts?)` | `Promise<BarcodeModules>` | `BarcodeModules` |
 | `ready(opts?)` | `Promise<void>` | `Promise<void>` |
 
-`generate` is an alias of `generatePng`. `decode` takes a `Uint8Array` of image bytes (PNG/JPEG/WebP) or a canvas `ImageData`, and loads the decoder on first use — `ready({ decoder: true })` warms it early.
+`decode` takes a `Uint8Array` of image bytes (PNG/JPEG/WebP) or a canvas `ImageData`, and loads the decoder on first use — `ready({ decoder: true })` warms it early.
 
 ### Options
 
@@ -93,8 +97,8 @@ Modules always land on whole pixels, so codes never come out blurry. Under `'exa
 `ean13` · `ean8` · `itf`
 
 ```js
-await generateBarcodePng(sku, { format: "code128" });
-await generateBarcodeSvg("012345678901", { format: "ean13" }); // check digit computed, digits printed
+await barcodePng(sku, { format: "code128" });
+await barcodeSvg("012345678901", { format: "ean13" }); // check digit computed, digits printed
 ```
 
 A barcode has no square to fit into — the width comes from the data, and you
@@ -110,9 +114,9 @@ Every failure is an `Error` with a `code` you can branch on:
 
 ```js
 try {
-  await generatePng(payload, { ecc: "H" });
+  await qrPng(payload, { ecc: "H" });
 } catch (err) {
-  if (err.code === "PAYLOAD_TOO_LONG") await generatePng(payload, { ecc: "L" });
+  if (err.code === "PAYLOAD_TOO_LONG") await qrPng(payload, { ecc: "L" });
 }
 ```
 
@@ -123,10 +127,10 @@ try {
 ## React & Vue
 
 ```tsx
-import { useGenerate } from "barqr/react";
+import { useQr } from "barqr/react";
 
 function Ticket({ url }: { url: string }) {
-  const { src, error } = useGenerate(url, { size: 320 });
+  const { src, error } = useQr(url, { size: 320 });
   if (error) return <p>{String(error)}</p>;
   return <img src={src ?? undefined} width={320} height={320} alt="QR code" />;
 }
@@ -134,9 +138,9 @@ function Ticket({ url }: { url: string }) {
 
 ```vue
 <script setup>
-import { useGenerate } from "barqr/vue";
+import { useQr } from "barqr/vue";
 const props = defineProps(["url"]);
-const { src, error } = useGenerate(() => props.url, { size: 320 });
+const { src, error } = useQr(() => props.url, { size: 320 });
 </script>
 
 <template>
@@ -144,9 +148,15 @@ const { src, error } = useGenerate(() => props.url, { size: 320 });
 </template>
 ```
 
-Both expose the same five: `useGenerate` (bytes + a managed object URL) · `useGenerateSvg` ·
-`useGenerateModules` (raw grid) · `useBarcode` · `useBarcodeSvg` · `useDecode` ·
-`useQrScanner`.
+Both expose the same five: | QR | Barcode | Both |
+| --- | --- | --- |
+| `useQr` | `useBarcode` | `useDecode` |
+| `useQrSvg` | `useBarcodeSvg` | `useScanner` |
+| `useQrModules` | `useBarcodeModules` | |
+
+`useQr` and `useBarcode` return `{ src, bytes, error, loading }` — `src` is a
+managed object URL, revoked for you. The `*Svg` pair returns markup, the
+`*Modules` pair returns the raw pattern with nothing to clean up.
 
 React hooks track the individual option fields, so an inline `{ size: 320 }`
 doesn't re-run WASM on every render. Vue composables take plain values, refs or
@@ -169,10 +179,10 @@ server route or `useAsyncData`; it is synchronous in Node.
 
 ```js
 // SVG: the logo is drawn for you, fitted inside the reserved square
-const svg = await generateSvg(url, { ecc: "H", logoSpace: 24, logo: "/logo.svg" });
+const svg = await qrSvg(url, { ecc: "H", logoSpace: 24, logo: "/logo.svg" });
 
 // PNG: the space is reserved, you composite the image
-const { logo } = await generateModules(url, { ecc: "H", logoSpace: 24 });
+const { logo } = await qrModules(url, { ecc: "H", logoSpace: 24 });
 ctx.drawImage(img, logo.x, logo.y, logo.size, logo.size);
 ```
 
@@ -193,7 +203,7 @@ scanner.stop();
 
 Frames come from `requestVideoFrameCallback` where available, downscaled to 640 px, one decode attempt every 120 ms, repeat hits suppressed for 1.5 s — all adjustable. Needs a secure context (https or localhost); rejects with `CAMERA_DENIED` or `CAMERA_UNAVAILABLE`.
 
-In React, `useQrScanner()` returns a `videoRef` to attach and releases the camera on unmount.
+In React, `useScanner()` returns a `videoRef` to attach and releases the camera on unmount.
 
 </details>
 
@@ -203,8 +213,8 @@ In React, `useQrScanner()` returns a `videoRef` to attach and releases the camer
 ```js
 import { promptpay, wifi } from "barqr/payload";
 
-await generatePng(wifi({ ssid: "Cafe Wi-Fi", password: "hunter2" }));
-await generatePng(promptpay({ target: "081-234-5678", amount: 250 }), { ecc: "M" });
+await qrPng(wifi({ ssid: "Cafe Wi-Fi", password: "hunter2" }));
+await qrPng(promptpay({ target: "081-234-5678", amount: 250 }), { ecc: "M" });
 ```
 
 `wifi` · `mecard` · `vcard` · `mailto` · `sms` · `tel` · `geo` · `otpauth` · `promptpay`
@@ -216,10 +226,10 @@ Plain strings, no WASM loaded. Each escapes its own separators — the failure m
 <details>
 <summary><b>Rendering the grid yourself</b></summary>
 
-`generateModules` returns the symbol before rasterization — for canvas, an inline `<svg>` that inherits `currentColor`, PDF, or native.
+`qrModules` returns the symbol before rasterization — for canvas, an inline `<svg>` that inherits `currentColor`, PDF, or native.
 
 ```js
-const { n, scale, origin, dark } = await generateModules(text, { size: 240 });
+const { n, scale, origin, dark } = await qrModules(text, { size: 240 });
 
 for (let y = 0; y < n; y++) {
   for (let x = 0; x < n; x++) {

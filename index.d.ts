@@ -211,36 +211,34 @@ export type HqrErrorCode =
  * ======================================================= */
 
 /** Generate a QR code as PNG bytes (1-bit grayscale). */
-export function generatePng(text: string, opts?: GenerateOptions): Promise<Uint8Array>;
+export function qrPng(text: string, opts?: GenerateOptions): Promise<Uint8Array>;
 
 /** Generate a QR code as SVG markup (a single `<path>`). */
-export function generateSvg(text: string, opts?: SvgOptions): Promise<string>;
+export function qrSvg(text: string, opts?: SvgOptions): Promise<string>;
 
-/** Generate a 1D barcode as PNG bytes. Digits are not drawn — see {@link generateBarcodeSvg}. */
-export function generateBarcodePng(text: string, opts?: BarcodeOptions): Promise<Uint8Array>;
+/** Generate a 1D barcode as PNG bytes. Digits are not drawn — see {@link barcodeSvg}. */
+export function barcodePng(text: string, opts?: BarcodeOptions): Promise<Uint8Array>;
 
 /** Generate a 1D barcode as SVG, with the data underneath where conventional. */
-export function generateBarcodeSvg(text: string, opts?: BarcodeSvgOptions): Promise<string>;
+export function barcodeSvg(text: string, opts?: BarcodeSvgOptions): Promise<string>;
 
 /** The bar pattern, for drawing the barcode yourself. */
-export function generateBarcodeModules(
+export function barcodeModules(
   text: string,
   opts?: BarcodeOptions,
 ): Promise<BarcodeModules>;
 
 /**
  * Encode a batch in one crossing of the JS/WASM boundary — cheaper than a loop
- * over {@link generatePng} when rendering many codes at once.
+ * over {@link qrPng} when rendering many codes at once.
  *
  * Fails on the first bad entry; the thrown error carries an `index` property.
  */
-export function generateMany(texts: string[], opts?: GenerateOptions): Promise<Uint8Array[]>;
+export function qrMany(texts: string[], opts?: GenerateOptions): Promise<Uint8Array[]>;
 
 /** The raw module grid, for rendering the code yourself. */
-export function generateModules(text: string, opts?: GenerateOptions): Promise<QrModules>;
+export function qrModules(text: string, opts?: GenerateOptions): Promise<QrModules>;
 
-/** Alias of {@link generatePng}. */
-export function generate(text: string, opts?: GenerateOptions): Promise<Uint8Array>;
 
 /* =========================================================
  * Decode

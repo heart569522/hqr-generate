@@ -1,6 +1,27 @@
 ## [Unreleased] — 1.0.0
 
-### Renamed
+### Renamed — API
+
+Every function now says which symbol family it belongs to, because the package
+does both and `generate*` quietly meaning "QR" was an accident of history.
+
+| was | now |
+| --- | --- |
+| `generatePng` / `generate` / `generate_png` | `qrPng` |
+| `generateSvg` / `generate_svg` | `qrSvg` |
+| `generateModules` / `generate_modules` | `qrModules` |
+| `generateMany` | `qrMany` |
+| `useGenerate` | `useQr` |
+| `useGenerateSvg` | `useQrSvg` |
+| `useGenerateModules` | `useQrModules` |
+| `useQrScanner` | `useScanner` |
+
+`decode`, `decodeAll` and `ready` are unchanged — they were never QR-specific —
+and every option keeps its name. `useBarcodeModules` joins `useBarcode` and
+`useBarcodeSvg`, so the two families line up hook for hook. The bare `generate`
+alias is gone: with two symbol families it no longer answers "generate what?".
+
+### Renamed — package
 
 The package moves to a new name at 1.0. `barqr` is deprecated
 and 0.6.0 is its last release; see [MIGRATION.md](./MIGRATION.md). For most code
@@ -74,8 +95,8 @@ appears in 23 files for npm alone and 39 once the crate and repo are included.
 
 - **1D barcodes.** Nine symbologies — Code 128, Code 39 (with or without check
   character), Code 93, Code 11, Codabar, EAN-8, EAN-13 and ITF — as PNG, SVG or
-  the raw bar pattern, through `generateBarcodePng` / `generateBarcodeSvg` /
-  `generateBarcodeModules`, plus `useBarcode` and `useBarcodeSvg` in both the
+  the raw bar pattern, through `barcodePng` / `barcodeSvg` /
+  `barcodeModules`, plus `useBarcode` and `useBarcodeSvg` in both the
   React and Vue layers.
 
   The encoder grows from 85 KB to 100 KB gzipped for all nine, because a 1D
@@ -172,12 +193,12 @@ the image you get back.
 ### Added
 
 - **Centre logo support.** `logoSpace` (a percentage of the symbol width) blanks
-  a centred square; `generateSvg` also takes a `logo` href and draws it for you.
+  a centred square; `qrSvg` also takes a `logo` href and draws it for you.
   The request is rejected with `LOGO_SPACE_TOO_LARGE` if it would spend more of
   the error-correction budget than the level can spare, or if the square would
   reach the finder patterns.
 - **Camera scanning** — `barqr/scanner` (`createScanner`,
-  `listCameras`) and the `useQrScanner` React hook. Frames come from
+  `listCameras`) and the `useScanner` React hook. Frames come from
   `requestVideoFrameCallback` where available, downscaled to 640 px, throttled,
   and de-duplicated. Plain JS, so it adds nothing to the WASM binaries.
 - **Payload builders** — `barqr/payload`: `wifi`, `mecard`,
@@ -185,17 +206,17 @@ the image you get back.
   EMVCo merchant-presented QR, with a CRC-16/CCITT-FALSE checksum). Each escapes
   its own separators — the failure mode otherwise is a code that scans fine and
   then does nothing.
-- `generateMany(texts, opts)` — encode a batch in one crossing of the JS/WASM
+- `qrMany(texts, opts)` — encode a batch in one crossing of the JS/WASM
   boundary. Errors carry the failing `index`.
 - `decodeAll(input)` — every code in the image, each with its pixel corners
   (`[top-left, top-right, bottom-right, bottom-left]`), version and ECC level.
 - `sizeMode: 'exact' | 'fit'`.
-- `generateModules(text, opts)` — the raw module grid
+- `qrModules(text, opts)` — the raw module grid
   (`{ n, margin, scale, size, origin, version, dark }`) for rendering to canvas,
   inline `<svg>`, PDF or native.
-- `useGenerateModules()` React hook.
+- `useQrModules()` React hook.
 - `ready({ decoder })` to preload WASM before the first render.
-- camelCase names (`generatePng`, `generateSvg`, `generateModules`); the 0.5
+- camelCase names (`qrPng`, `qrSvg`, `qrModules`); the 0.5
   snake_case names remain as aliases.
 - `barqr/node` subpath export.
 - Rust convenience helpers `barqr::png()` / `svg()`, and `GenerateOptions`
@@ -262,8 +283,8 @@ End-to-end QR generation is now ~9.5× faster. On Apple Silicon (release + LTO) 
 
 - `generate(text)` no longer throws when called without an `options` argument — defaults (`size: 320`, `margin: 4`, `ecc: 'Q'`) are now applied in the JS shim.
 - `ecc` option (`'L' | 'M' | 'Q' | 'H'`) is now correctly translated to the underlying `u8` before crossing the WASM boundary. Previously, all values silently fell back to `Q`.
-- `useGenerate` / `useGenerateSvg` no longer re-run WASM on every React render when callers inline their `opts` object — effect deps are now the primitive option fields.
-- `useGenerate` now passes the `Uint8Array` directly to `new Blob([…])`, removing an unnecessary `ArrayBuffer` slice copy.
+- `useQr` / `useQrSvg` no longer re-run WASM on every React render when callers inline their `opts` object — effect deps are now the primitive option fields.
+- `useQr` now passes the `Uint8Array` directly to `new Blob([…])`, removing an unnecessary `ArrayBuffer` slice copy.
 
 ### Added
 

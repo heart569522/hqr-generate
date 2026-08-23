@@ -1,5 +1,5 @@
 import { onScopeDispose, ref, shallowRef, toValue, watchEffect } from "vue";
-import { generateBarcodePng } from "../index.web.js";
+import { barcodePng } from "../index.web.js";
 import { isBrowser } from "./shared.js";
 import type { MaybeRefOrGetter } from "vue";
 import type { BarcodeOptions } from "../index";
@@ -57,7 +57,7 @@ export function useBarcode(
 
     try {
       loading.value = true;
-      const result = await generateBarcodePng(value, options);
+      const result = await barcodePng(value, options);
       if (cancelled) return;
 
       release();

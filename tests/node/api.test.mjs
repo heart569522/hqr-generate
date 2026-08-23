@@ -11,14 +11,13 @@ import * as pkg from "../../index.node.js";
 import {
   decode,
   decodeAll,
-  generate,
-  generateMany,
-  generateBarcodeModules,
-  generateBarcodePng,
-  generateBarcodeSvg,
-  generateModules,
-  generatePng,
-  generateSvg,
+  qrMany,
+  barcodeModules,
+  barcodePng,
+  barcodeSvg,
+  qrModules,
+  qrPng,
+  qrSvg,
   ready,
 } from "../../index.node.js";
 
@@ -29,8 +28,8 @@ function pngSize(bytes) {
   return { width: view.getUint32(16), height: view.getUint32(20) };
 }
 
-test("generate works with no options at all", () => {
-  const bytes = generate("https://example.com");
+test("qrPng works with no options at all", () => {
+  const bytes = qrPng("https://example.com");
   assert.ok(bytes instanceof Uint8Array);
   assert.ok(bytes.length > 0);
   assert.deepEqual(pngSize(bytes), { width: 320, height: 320 });
@@ -39,7 +38,7 @@ test("generate works with no options at all", () => {
 test("size is the exact pixel size of the output", () => {
   for (const size of [128, 200, 256, 320, 512, 1000]) {
     assert.deepEqual(
-      pngSize(generatePng("https://example.com/exact", { size })),
+      pngSize(qrPng("https://example.com/exact", { size })),
       { width: size, height: size },
       `size ${size}`,
     );
@@ -48,7 +47,7 @@ test("size is the exact pixel size of the output", () => {
 
 test("sizeMode 'fit' never exceeds the requested size", () => {
   for (const size of [128, 320, 999]) {
-    const { width } = pngSize(generatePng("https://example.com/fit", { size, sizeMode: "fit" }));
+    const { width } = pngSize(qrPng("https://example.com/fit", { size, sizeMode: "fit" }));
     assert.ok(width <= size, `fit produced ${width} > ${size}`);
   }
 });
@@ -57,22 +56,22 @@ test("ecc actually reaches WASM", () => {
   // The 0.4/0.5 bug: every level silently became Q. A higher level needs a
   // bigger symbol, so the module counts must differ.
   const text = "https://example.com/some/path?with=query&and=more";
-  const l = generateModules(text, { ecc: "L" }).n;
-  const h = generateModules(text, { ecc: "H" }).n;
+  const l = qrModules(text, { ecc: "L" }).n;
+  const h = qrModules(text, { ecc: "H" }).n;
   assert.ok(h > l, `expected H (${h}) to need more modules than L (${l})`);
 });
 
 test("ecc is case-insensitive but rejects nonsense", () => {
-  assert.equal(generateModules("x", { ecc: "h" }).n, generateModules("x", { ecc: "H" }).n);
-  assert.throws(() => generatePng("x", { ecc: "Z" }), (e) => e.code === "INVALID_OPTION");
-  assert.throws(() => generatePng("x", { sizeMode: "stretch" }), (e) => e.code === "INVALID_OPTION");
+  assert.equal(qrModules("x", { ecc: "h" }).n, qrModules("x", { ecc: "H" }).n);
+  assert.throws(() => qrPng("x", { ecc: "Z" }), (e) => e.code === "INVALID_OPTION");
+  assert.throws(() => qrPng("x", { sizeMode: "stretch" }), (e) => e.code === "INVALID_OPTION");
 });
 
 test("margin eats into the symbol, it does not grow the image", () => {
   // Same requested pixel size: a wider quiet zone leaves fewer pixels per
   // module, and the symbol itself is unchanged.
-  const tight = generateModules("hello", { size: 320, margin: 0 });
-  const loose = generateModules("hello", { size: 320, margin: 8 });
+  const tight = qrModules("hello", { size: 320, margin: 0 });
+  const loose = qrModules("hello", { size: 320, margin: 8 });
   assert.equal(tight.n, loose.n);
   assert.equal(tight.size, loose.size);
   assert.ok(loose.scale < tight.scale, `${loose.scale} should be < ${tight.scale}`);
@@ -80,14 +79,14 @@ test("margin eats into the symbol, it does not grow the image", () => {
 });
 
 test("svg output is a single path at the requested size", () => {
-  const svg = generateSvg("https://example.com", { size: 256 });
+  const svg = qrSvg("https://example.com", { size: 256 });
   assert.match(svg, /^<svg /);
   assert.match(svg, /width="256" height="256"/);
   assert.equal(svg.match(/<path/g).length, 1);
 });
 
 test("module grid is a plain object with no wasm handle to free", () => {
-  const m = generateModules("https://example.com");
+  const m = qrModules("https://example.com");
   assert.equal(typeof m, "object");
   assert.equal(m.free, undefined);
   assert.equal(m.dark.length, m.n * m.n);
@@ -95,14 +94,14 @@ test("module grid is a plain object with no wasm handle to free", () => {
   assert.ok(m.dark.some((v) => v === 1) && m.dark.some((v) => v === 0));
 });
 
-test("round trip: generate then decode", () => {
+test("round trip: encode then decode", () => {
   for (const text of ["hello", "https://example.com/x?y=1", "สวัสดีครับ", "🎉 emoji"]) {
-    assert.equal(decode(generatePng(text)), text);
+    assert.equal(decode(qrPng(text)), text);
   }
 });
 
 test("decode reads canvas-shaped ImageData too", () => {
-  const m = generateModules("imagedata path");
+  const m = qrModules("imagedata path");
   const px = m.size;
   const data = new Uint8ClampedArray(px * px * 4).fill(255);
   const { origin } = m;
@@ -137,13 +136,13 @@ test("oversized images are refused before anything is allocated", () => {
   );
 
   // ...and an ordinary image still works.
-  assert.equal(decode(generatePng("still fine", { size: 400 })), "still fine");
+  assert.equal(decode(qrPng("still fine", { size: 400 })), "still fine");
 });
 
 test("errors carry a stable code", () => {
-  assert.throws(() => generatePng(""), (e) => e.code === "EMPTY_TEXT");
-  assert.throws(() => generatePng("x", { size: 0 }), (e) => e.code === "INVALID_SIZE");
-  assert.throws(() => generatePng("x".repeat(8000)), (e) => e.code === "PAYLOAD_TOO_LONG");
+  assert.throws(() => qrPng(""), (e) => e.code === "EMPTY_TEXT");
+  assert.throws(() => qrPng("x", { size: 0 }), (e) => e.code === "INVALID_SIZE");
+  assert.throws(() => qrPng("x".repeat(8000)), (e) => e.code === "PAYLOAD_TOO_LONG");
   assert.throws(
     () => decode(new Uint8Array([1, 2, 3, 4])),
     (e) => e.code === "INVALID_IMAGE",
@@ -155,25 +154,24 @@ test("the public surface is exactly what 1.0 promises", () => {
   assert.deepEqual(
     Object.keys(pkg).sort(),
     [
+      "barcodeModules",
+      "barcodePng",
+      "barcodeSvg",
       "decode",
       "decodeAll",
-      "generate",
-      "generateBarcodeModules",
-      "generateBarcodePng",
-      "generateBarcodeSvg",
-      "generateMany",
-      "generateModules",
-      "generatePng",
-      "generateSvg",
+      "qrMany",
+      "qrModules",
+      "qrPng",
+      "qrSvg",
       "ready",
     ],
     "unexpected change to the exported surface",
   );
 });
 
-test("generateMany encodes a batch", () => {
+test("qrMany encodes a batch", () => {
   const texts = ["one", "two", "three"];
-  const batch = generateMany(texts, { size: 160 });
+  const batch = qrMany(texts, { size: 160 });
 
   assert.equal(batch.length, texts.length);
   batch.forEach((bytes, i) => {
@@ -183,25 +181,25 @@ test("generateMany encodes a batch", () => {
   });
 
   // Same output as encoding one at a time.
-  assert.deepEqual([...batch[0]], [...generatePng("one", { size: 160 })]);
+  assert.deepEqual([...batch[0]], [...qrPng("one", { size: 160 })]);
 });
 
-test("generateMany reports which entry failed", () => {
+test("qrMany reports which entry failed", () => {
   assert.throws(
-    () => generateMany(["fine", "", "also fine"]),
+    () => qrMany(["fine", "", "also fine"]),
     (e) => e.code === "EMPTY_TEXT" && e.index === 1,
   );
-  assert.throws(() => generateMany("not an array"), TypeError);
+  assert.throws(() => qrMany("not an array"), TypeError);
 });
 
 test("logoSpace blanks the centre and the code still scans", () => {
   const text = "https://example.com/with-logo";
   for (const [ecc, logoSpace] of [["Q", 20], ["H", 25], ["H", 30]]) {
-    const bytes = generatePng(text, { ecc, logoSpace, size: 400 });
+    const bytes = qrPng(text, { ecc, logoSpace, size: 400 });
     assert.equal(decode(bytes), text, `${logoSpace}% at ecc ${ecc}`);
   }
 
-  const m = generateModules(text, { ecc: "H", logoSpace: 25, size: 400 });
+  const m = qrModules(text, { ecc: "H", logoSpace: 25, size: 400 });
   assert.ok(m.logo, "expected a reserved rect");
   assert.equal(m.logo.size, m.logo.modules * m.scale);
   // Everything inside the rect is blank.
@@ -215,20 +213,20 @@ test("logoSpace blanks the centre and the code still scans", () => {
 
 test("logoSpace is refused when error correction cannot cover it", () => {
   assert.throws(
-    () => generatePng("x", { ecc: "L", logoSpace: 30 }),
+    () => qrPng("x", { ecc: "L", logoSpace: 30 }),
     (e) => e.code === "LOGO_SPACE_TOO_LARGE",
   );
-  assert.equal(generateModules("x", { logoSpace: 0 }).logo, null);
+  assert.equal(qrModules("x", { logoSpace: 0 }).logo, null);
 });
 
 test("svg embeds the logo over the reserved square", () => {
-  const svg = generateSvg("https://example.com/logo", {
+  const svg = qrSvg("https://example.com/logo", {
     ecc: "H",
     logoSpace: 25,
     size: 400,
     logo: "data:image/png;base64,AAAA",
   });
-  const { logo } = generateModules("https://example.com/logo", {
+  const { logo } = qrModules("https://example.com/logo", {
     ecc: "H",
     logoSpace: 25,
     size: 400,
@@ -241,14 +239,14 @@ test("svg embeds the logo over the reserved square", () => {
 
 test("a logo href without reserved space is a mistake, not a no-op", () => {
   assert.throws(
-    () => generateSvg("x", { logo: "data:image/png;base64,AAAA" }),
+    () => qrSvg("x", { logo: "data:image/png;base64,AAAA" }),
     (e) => e.code === "INVALID_OPTION",
   );
 });
 
 test("decodeAll returns positions", () => {
   const text = "positioned";
-  const results = decodeAll(generatePng(text, { size: 300 }));
+  const results = decodeAll(qrPng(text, { size: 300 }));
 
   assert.equal(results.length, 1);
   assert.equal(results[0].text, text);
@@ -273,49 +271,49 @@ test("barcodes: every symbology encodes and lands on whole pixels", () => {
   ];
 
   for (const [format, data] of cases) {
-    const m = generateBarcodeModules(data, { format, moduleWidth: 3, height: 60, quiet: 8 });
+    const m = barcodeModules(data, { format, moduleWidth: 3, height: 60, quiet: 8 });
     assert.ok(m.bars.length > 0, `${format} produced no bars`);
     assert.equal(m.origin, 8 * 3, `${format} quiet zone`);
     assert.equal(m.width, (m.bars.length + 16) * 3, `${format} width`);
 
-    const png = generateBarcodePng(data, { format, moduleWidth: 3, height: 60, quiet: 8 });
+    const png = barcodePng(data, { format, moduleWidth: 3, height: 60, quiet: 8 });
     assert.deepEqual(pngSize(png), { width: m.width, height: 60 }, `${format} png size`);
   }
 });
 
 test("barcodes: EAN computes the check digit and prints it", () => {
   // 12 digits in, 13 out — the printed text has to match the bars.
-  const m = generateBarcodeModules("012345678901", { format: "ean13" });
+  const m = barcodeModules("012345678901", { format: "ean13" });
   assert.equal(m.text, "0123456789012");
   assert.equal(m.bars.length, 95, "EAN-13 is 95 modules by definition");
 
-  const svg = generateBarcodeSvg("012345678901", { format: "ean13" });
+  const svg = barcodeSvg("012345678901", { format: "ean13" });
   assert.ok(svg.includes("<text"), "EAN should print its digits");
   assert.ok(svg.includes("0123456789012"), "printed text must include the check digit");
 
   // Passing the full 13 digits keeps them.
-  assert.equal(generateBarcodeModules("0123456789012", { format: "ean13" }).text, "0123456789012");
+  assert.equal(barcodeModules("0123456789012", { format: "ean13" }).text, "0123456789012");
 });
 
 test("barcodes: text is drawn only where the symbology expects it", () => {
-  assert.ok(!generateBarcodeSvg("ABC", { format: "code128" }).includes("<text"));
-  assert.ok(generateBarcodeSvg("ABC", { format: "code128", text: true }).includes("<text"));
-  assert.ok(!generateBarcodeSvg("1234567", { format: "ean8", text: false }).includes("<text"));
+  assert.ok(!barcodeSvg("ABC", { format: "code128" }).includes("<text"));
+  assert.ok(barcodeSvg("ABC", { format: "code128", text: true }).includes("<text"));
+  assert.ok(!barcodeSvg("1234567", { format: "ean8", text: false }).includes("<text"));
 });
 
 test("barcodes: data a symbology cannot represent is rejected", () => {
   // Code 39 has no lowercase.
   assert.throws(
-    () => generateBarcodePng("abc", { format: "code39" }),
+    () => barcodePng("abc", { format: "code39" }),
     (e) => e.code === "INVALID_BARCODE_DATA",
   );
   // EAN-13 needs 12 or 13 digits.
   assert.throws(
-    () => generateBarcodePng("123", { format: "ean13" }),
+    () => barcodePng("123", { format: "ean13" }),
     (e) => e.code === "INVALID_BARCODE_DATA",
   );
   assert.throws(
-    () => generateBarcodePng("HELLO", { format: "nope" }),
+    () => barcodePng("HELLO", { format: "nope" }),
     (e) => e.code === "INVALID_OPTION",
   );
 });

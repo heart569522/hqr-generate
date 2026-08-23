@@ -39,7 +39,7 @@ export async function ready(opts) {
  * @param {import('./index.node').GenerateOptions} [opts]
  * @returns {Uint8Array}
  */
-export function generatePng(text, opts) {
+export function qrPng(text, opts) {
   return encoder.generate_png(text, ...normalizeOpts(opts));
 }
 
@@ -50,7 +50,7 @@ export function generatePng(text, opts) {
  * @param {import('./index.node').GenerateOptions} [opts]
  * @returns {string}
  */
-export function generateSvg(text, opts) {
+export function qrSvg(text, opts) {
   return encoder.generate_svg(text, ...normalizeOpts(opts), logoHref(opts));
 }
 
@@ -62,9 +62,9 @@ export function generateSvg(text, opts) {
  * @param {import('./index.node').GenerateOptions} [opts]
  * @returns {Uint8Array[]}
  */
-export function generateMany(texts, opts) {
+export function qrMany(texts, opts) {
   if (!Array.isArray(texts)) {
-    throw new TypeError("generateMany expects an array of strings");
+    throw new TypeError("qrMany expects an array of strings");
   }
   return encoder.generate_many_png(texts, ...normalizeOpts(opts));
 }
@@ -76,22 +76,20 @@ export function generateMany(texts, opts) {
  * @param {import('./index.node').GenerateOptions} [opts]
  * @returns {import('./index.node').QrModules}
  */
-export function generateModules(text, opts) {
+export function qrModules(text, opts) {
   return encoder.generate_modules(text, ...normalizeOpts(opts));
 }
 
-/** Alias of {@link generatePng}. */
-export const generate = generatePng;
 
 /**
  * Generate a 1D barcode as PNG bytes. The human-readable digits are not drawn;
- * use {@link generateBarcodeSvg} when the text matters.
+ * use {@link barcodeSvg} when the text matters.
  *
  * @param {string} text
  * @param {import('./index.node').BarcodeOptions} [opts]
  * @returns {Uint8Array}
  */
-export function generateBarcodePng(text, opts) {
+export function barcodePng(text, opts) {
   return encoder.generate_barcode_png(text, ...normalizeBarcodeOpts(opts));
 }
 
@@ -103,7 +101,7 @@ export function generateBarcodePng(text, opts) {
  * @param {import('./index.node').BarcodeSvgOptions} [opts]
  * @returns {string}
  */
-export function generateBarcodeSvg(text, opts) {
+export function barcodeSvg(text, opts) {
   return encoder.generate_barcode_svg(text, ...normalizeBarcodeOpts(opts), showBarcodeText(opts));
 }
 
@@ -114,7 +112,7 @@ export function generateBarcodeSvg(text, opts) {
  * @param {import('./index.node').BarcodeOptions} [opts]
  * @returns {import('./index.node').BarcodeModules}
  */
-export function generateBarcodeModules(text, opts) {
+export function barcodeModules(text, opts) {
   return encoder.generate_barcode_modules(text, ...normalizeBarcodeOpts(opts));
 }
 

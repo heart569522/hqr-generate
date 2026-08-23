@@ -1,18 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { generateModules } from "../index.web.js";
+import { qrModules } from "../index.web.js";
 import type { GenerateOptions, QrModules } from "../index";
 
 /**
  * The QR module grid, for rendering the code yourself — an inline `<svg>` that
  * inherits `currentColor`, a `<canvas>`, a PDF, a print layout.
  *
- * Unlike {@link useGenerate}, nothing here allocates a Blob or an object URL,
+ * Unlike {@link useQr}, nothing here allocates a Blob or an object URL,
  * so there is no URL lifetime to manage and the markup is server-renderable
  * once you have the grid.
  */
-export function useGenerateModules(text?: string, opts?: GenerateOptions) {
+export function useQrModules(text?: string, opts?: GenerateOptions) {
   const [modules, setModules] = useState<QrModules | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
@@ -32,7 +32,7 @@ export function useGenerateModules(text?: string, opts?: GenerateOptions) {
     (async () => {
       try {
         setLoading(true);
-        const result = await generateModules(text, { size, margin, ecc, sizeMode });
+        const result = await qrModules(text, { size, margin, ecc, sizeMode });
         if (!cancelled) {
           setModules(result);
           setError(null);

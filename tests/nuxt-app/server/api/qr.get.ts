@@ -3,7 +3,7 @@
 // Nitro bundles this file, which is exactly where the `__dirname` lookup in
 // wasm-pack's glue used to fail. If this returns an image, the binary really is
 // travelling inside the JS.
-import { generatePng, generateSvg } from "barqr";
+import { qrPng, qrSvg } from "barqr";
 
 export default defineEventHandler((event) => {
   const query = getQuery(event);
@@ -13,11 +13,11 @@ export default defineEventHandler((event) => {
   try {
     if (query.format === "svg") {
       setHeader(event, "content-type", "image/svg+xml");
-      return generateSvg(text, { size });
+      return qrSvg(text, { size });
     }
     setHeader(event, "content-type", "image/png");
     // No await: the Node build is synchronous.
-    return generatePng(text, { size });
+    return qrPng(text, { size });
   } catch (err) {
     const { code, message } = err as { code?: string; message?: string };
     setResponseStatus(event, 400);

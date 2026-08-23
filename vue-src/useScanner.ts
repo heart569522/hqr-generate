@@ -24,7 +24,7 @@ export interface UseQrScannerOptions {
  *
  * ```vue
  * <script setup>
- * const { video, result, error } = useQrScanner({ onResult: (r) => console.log(r.text) })
+ * const { video, result, error } = useScanner({ onResult: (r) => console.log(r.text) })
  * </script>
  * <template><video ref="video" playsinline muted /></template>
  * ```
@@ -32,7 +32,7 @@ export interface UseQrScannerOptions {
  * The camera is released when the scope is disposed and whenever `enabled`
  * goes false. Needs a secure context — https, or localhost.
  */
-export function useQrScanner(opts: UseQrScannerOptions = {}) {
+export function useScanner(opts: UseQrScannerOptions = {}) {
   // Named `video` so `<video ref="video">` binds by convention in <script setup>.
   const video = ref<HTMLVideoElement | null>(null) as Ref<HTMLVideoElement | null>;
   const result = shallowRef<DecodedQr | null>(null);

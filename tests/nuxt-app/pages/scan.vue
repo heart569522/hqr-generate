@@ -5,8 +5,8 @@
 // whole pump/decode/dedupe path runs on a machine without a camera — and in
 // headless CI.
 import { ref, watch } from "vue";
-import { generateModules } from "barqr";
-import { useQrScanner } from "barqr/vue";
+import { qrModules } from "barqr";
+import { useScanner } from "barqr/vue";
 
 const SAMPLES = ["https://example.com/scanned", "สวัสดีครับ ทดสอบภาษาไทย"];
 
@@ -21,7 +21,7 @@ async function useFakeCamera() {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d")!;
 
-  let modules = await generateModules(SAMPLES[0], { size: 400 });
+  let modules = await qrModules(SAMPLES[0], { size: 400 });
   const paint = () => {
     const { n, scale, size, origin, dark } = modules;
     if (canvas.width !== size) canvas.width = canvas.height = size;
@@ -47,7 +47,7 @@ async function useFakeCamera() {
   });
 
   repaint = async (text: string) => {
-    modules = await generateModules(text, { size: 400 });
+    modules = await qrModules(text, { size: 400 });
     paint();
   };
   restore = () => {
@@ -58,7 +58,7 @@ async function useFakeCamera() {
   };
 }
 
-const { video, result, error, running } = useQrScanner({
+const { video, result, error, running } = useScanner({
   enabled,
   onResult: (r) => {
     log.value = [`${new Date().toLocaleTimeString()}  ${r.text}`, ...log.value].slice(0, 6);

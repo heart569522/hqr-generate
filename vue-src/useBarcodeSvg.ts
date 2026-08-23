@@ -1,5 +1,5 @@
 import { ref, toValue, watchEffect } from "vue";
-import { generateBarcodeSvg } from "../index.web.js";
+import { barcodeSvg } from "../index.web.js";
 import { isBrowser } from "./shared.js";
 import type { MaybeRefOrGetter } from "vue";
 import type { BarcodeSvgOptions } from "../index";
@@ -39,7 +39,7 @@ export function useBarcodeSvg(
 
     try {
       loading.value = true;
-      const markup = await generateBarcodeSvg(value, options);
+      const markup = await barcodeSvg(value, options);
       if (!cancelled) {
         svg.value = markup;
         error.value = null;

@@ -32,31 +32,29 @@ export type {
 } from "./index";
 
 /** Generate a QR code as PNG bytes (1-bit grayscale). */
-export function generatePng(text: string, opts?: GenerateOptions): Uint8Array;
+export function qrPng(text: string, opts?: GenerateOptions): Uint8Array;
 
 /** Generate a QR code as SVG markup (a single `<path>`). */
-export function generateSvg(text: string, opts?: SvgOptions): string;
+export function qrSvg(text: string, opts?: SvgOptions): string;
 
-/** Generate a 1D barcode as PNG bytes. Digits are not drawn — see {@link generateBarcodeSvg}. */
-export function generateBarcodePng(text: string, opts?: BarcodeOptions): Uint8Array;
+/** Generate a 1D barcode as PNG bytes. Digits are not drawn — see {@link barcodeSvg}. */
+export function barcodePng(text: string, opts?: BarcodeOptions): Uint8Array;
 
 /** Generate a 1D barcode as SVG, with the data underneath where conventional. */
-export function generateBarcodeSvg(text: string, opts?: BarcodeSvgOptions): string;
+export function barcodeSvg(text: string, opts?: BarcodeSvgOptions): string;
 
 /** The bar pattern, for drawing the barcode yourself. */
-export function generateBarcodeModules(text: string, opts?: BarcodeOptions): BarcodeModules;
+export function barcodeModules(text: string, opts?: BarcodeOptions): BarcodeModules;
 
 /**
  * Encode a batch in one crossing of the JS/WASM boundary. Fails on the first
  * bad entry; the thrown error carries an `index` property.
  */
-export function generateMany(texts: string[], opts?: GenerateOptions): Uint8Array[];
+export function qrMany(texts: string[], opts?: GenerateOptions): Uint8Array[];
 
 /** The raw module grid, for rendering the code yourself. */
-export function generateModules(text: string, opts?: GenerateOptions): QrModules;
+export function qrModules(text: string, opts?: GenerateOptions): QrModules;
 
-/** Alias of {@link generatePng}. */
-export function generate(text: string, opts?: GenerateOptions): Uint8Array;
 
 /**
  * Read a QR code out of encoded image bytes (PNG / JPEG / WebP) or an
@@ -74,4 +72,4 @@ export function decodeAll(input: Uint8Array | ImageData): DecodedQr[];
  */
 export function ready(opts?: { decoder?: boolean }): Promise<void>;
 
-/** @deprecated use {@link generateSvg} */
+/** @deprecated use {@link qrSvg} */

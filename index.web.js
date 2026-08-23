@@ -54,7 +54,7 @@ export async function ready(opts) {
  * @param {import('./index').GenerateOptions} [opts]
  * @returns {Promise<Uint8Array>}
  */
-export async function generatePng(text, opts) {
+export async function qrPng(text, opts) {
   const args = normalizeOpts(opts);
   await ensureEncoder();
   return _png(text, ...args);
@@ -67,7 +67,7 @@ export async function generatePng(text, opts) {
  * @param {import('./index').GenerateOptions} [opts]
  * @returns {Promise<string>}
  */
-export async function generateSvg(text, opts) {
+export async function qrSvg(text, opts) {
   const args = normalizeOpts(opts);
   const href = logoHref(opts);
   await ensureEncoder();
@@ -77,7 +77,7 @@ export async function generateSvg(text, opts) {
 /**
  * Encode a batch in one crossing of the JS/WASM boundary. For a page rendering
  * a table of codes this is meaningfully cheaper than a loop over
- * {@link generatePng}.
+ * {@link qrPng}.
  *
  * Fails on the first bad entry; the thrown error carries `index`.
  *
@@ -85,9 +85,9 @@ export async function generateSvg(text, opts) {
  * @param {import('./index').GenerateOptions} [opts]
  * @returns {Promise<Uint8Array[]>}
  */
-export async function generateMany(texts, opts) {
+export async function qrMany(texts, opts) {
   if (!Array.isArray(texts)) {
-    throw new TypeError("generateMany expects an array of strings");
+    throw new TypeError("qrMany expects an array of strings");
   }
   const args = normalizeOpts(opts);
   await ensureEncoder();
@@ -102,27 +102,25 @@ export async function generateMany(texts, opts) {
  * @param {import('./index').GenerateOptions} [opts]
  * @returns {Promise<import('./index').QrModules>}
  */
-export async function generateModules(text, opts) {
+export async function qrModules(text, opts) {
   const args = normalizeOpts(opts);
   await ensureEncoder();
   return _modules(text, ...args);
 }
 
-/** Alias of {@link generatePng}. */
-export const generate = generatePng;
 
 /**
  * Generate a 1D barcode as PNG bytes.
  *
  * The human-readable digits are not drawn — that needs a font, which would cost
- * more binary than everything else here combined. Use {@link generateBarcodeSvg}
+ * more binary than everything else here combined. Use {@link barcodeSvg}
  * when the text matters.
  *
  * @param {string} text
  * @param {import('./index').BarcodeOptions} [opts]
  * @returns {Promise<Uint8Array>}
  */
-export async function generateBarcodePng(text, opts) {
+export async function barcodePng(text, opts) {
   const args = normalizeBarcodeOpts(opts);
   await ensureEncoder();
   return _barPng(text, ...args);
@@ -137,7 +135,7 @@ export async function generateBarcodePng(text, opts) {
  * @param {import('./index').BarcodeSvgOptions} [opts]
  * @returns {Promise<string>}
  */
-export async function generateBarcodeSvg(text, opts) {
+export async function barcodeSvg(text, opts) {
   const args = normalizeBarcodeOpts(opts);
   const withText = showBarcodeText(opts);
   await ensureEncoder();
@@ -151,7 +149,7 @@ export async function generateBarcodeSvg(text, opts) {
  * @param {import('./index').BarcodeOptions} [opts]
  * @returns {Promise<import('./index').BarcodeModules>}
  */
-export async function generateBarcodeModules(text, opts) {
+export async function barcodeModules(text, opts) {
   const args = normalizeBarcodeOpts(opts);
   await ensureEncoder();
   return _barModules(text, ...args);

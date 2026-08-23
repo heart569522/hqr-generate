@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { generateBarcodePng } from "../index.web.js";
+import { barcodePng } from "../index.web.js";
 import type { BarcodeOptions } from "../index";
 
 /**
@@ -37,7 +37,7 @@ export function useBarcode(text?: string, opts?: BarcodeOptions) {
     (async () => {
       try {
         setLoading(true);
-        const result = await generateBarcodePng(text, { format, moduleWidth, height, quiet });
+        const result = await barcodePng(text, { format, moduleWidth, height, quiet });
         if (cancelled) return;
 
         setBytes(result);
