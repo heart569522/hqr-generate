@@ -85,7 +85,9 @@ pub(super) fn decode_all_from_rgba(
     // BT.601 with integer shifts, same as the QR path. rxing wants an owned
     // buffer, so this one allocation is unavoidable here.
     let luma: Vec<u8> = rgba
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .map(|px| {
             let (r, g, b) = (px[0] as u32, px[1] as u32, px[2] as u32);
             ((r * 77 + g * 150 + b * 29) >> 8) as u8

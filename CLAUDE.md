@@ -14,7 +14,8 @@ Building requires `wasm-pack` (and a Rust toolchain with `wasm32-unknown-unknown
 - `npm run build:wasm` — the four `wasm-pack` builds, then `scripts/finalize-pkg.mjs`
 - `npm run build:react` — `tsc -p tsconfig.react.json` (compiles `react-src/` → `react/`)
 - `npm test` — `cargo test --features decode` + `node --test tests/node/*.test.mjs`
-- `npm run lint` — `cargo fmt --check` + `cargo clippy -D warnings`
+- `npm run lint` — `cargo fmt --check` + clippy on the native target
+- `npm run lint:all` — the above **plus clippy on each wasm feature set separately**. Run this before pushing: a helper used by two features but not a third is dead code only in that third build, and `cargo check` will not tell you — only clippy with `-D warnings`, per feature set, will.
 - `npm run size` — bundle size report; **exits non-zero if a binary exceeds its budget**
 - `npm run bench` — criterion benchmarks (`benches/generate.rs`)
 - `npm run clean` — removes `pkg/` and `react/`

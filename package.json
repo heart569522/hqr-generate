@@ -106,6 +106,8 @@
     "test:browser": "node scripts/browser-test.mjs",
     "test": "npm run test:rust && npm run test:node",
     "lint": "cargo fmt --all -- --check && cargo clippy --features decode,barcode --all-targets -- -D warnings",
+    "lint:wasm": "cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,generate,barcode -- -D warnings && cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,decode -- -D warnings && cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,decode-any -- -D warnings",
+    "lint:all": "npm run lint && npm run lint:wasm",
     "bench": "cargo bench --bench generate",
     "fuzz:seeds": "cargo run --release --features decode --example fuzz_seeds",
     "fuzz": "npm run fuzz:seeds && cargo +nightly fuzz run decode_bytes -- -max_total_time=300 -max_len=65536",

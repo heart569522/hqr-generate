@@ -71,7 +71,9 @@ fn set_prop(obj: &js_sys::Object, key: &str, value: JsValue) {
     let _ = Reflect::set(obj, &JsValue::from_str(key), &value);
 }
 
-#[cfg(any(feature = "generate", feature = "decode", feature = "decode-any"))]
+// `decode-any` reports coordinates that can be negative, so it builds its own
+// numbers rather than going through this.
+#[cfg(any(feature = "generate", feature = "decode"))]
 #[inline]
 fn num(v: u32) -> JsValue {
     JsValue::from_f64(v as f64)
