@@ -2,6 +2,23 @@
 
 ### Security
 
+- **Fixed a reachable panic in the decoder.** Fuzzing found RGBA input that
+  panicked inside `rqrr` 0.7.1: `Perspective::map` asserts that its result fits
+  in an `i32`, but that value is computed from image data — a degenerate
+  transform drives the denominator toward zero and the coordinate to infinity or
+  NaN, and the assertion fires.
+
+  This is worse here than an ordinary dependency bug, because
+  `wasm32-unknown-unknown` has `panic-strategy: abort`: a panic anywhere in the
+  decode path takes the whole WASM instance with it, and **cannot be caught**.
+  One crafted image would end QR decoding for the rest of the page's life, or
+  for a server handler's request.
+
+  `rqrr` is upgraded 0.7 -> 0.10, which no longer reaches that state. The input
+  is kept as a regression test. Note that the assertion is still present
+  upstream, so the defence is keeping the dependency current and continuing to
+  fuzz — there is no way to catch it from our side.
+
 - **The decoder no longer trusts an image's declared size.** A compressed image
   describes a canvas rather than containing one: a 1.2 MB PNG claiming
   16000x16000 made the decoder allocate **976 MB** and spend 2.2 s of CPU before
@@ -32,8 +49,13 @@
 
 ### Added
 
+- **Fuzzing.** `cargo-fuzz` targets for both decode entry points, a seed corpus
+  generated from real encoder output, and a weekly CI workflow. The corpus has
+  to start from real images: random bytes never get past
+  `image::guess_format`, so an unseeded run explores nothing. `npm run fuzz`
+  runs it locally.
 - `ROADMAP.md` — what has to be true before 1.0, and why.
-- `examples/decode_limits.rs` — the reproduction for the issue above, kept as a
+- `examples/decode_limits.rs` — the reproduction for the memory issue, kept as a
   runnable description of the threat model.
 
 ## [0.6.0] - 2026-08-23

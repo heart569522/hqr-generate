@@ -1,0 +1,53 @@
+name: Fuzz
+
+# Not on every push: a useful run takes minutes, and the toolchain install alone
+# costs more than the whole CI job. Weekly, plus on demand when the decoder or
+# its dependencies change.
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: Seconds per target
+        default: "600"
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [decode_bytes, decode_rgba]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install nightly
+        run: rustup toolchain install nightly --profile minimal
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      # Random bytes never get past `image::guess_format`. The corpus has to
+      # start from real images or the run explores nothing.
+      - name: Build the seed corpus
+        run: cargo run --release --features decode --example fuzz_seeds
+
+      - name: Fuzz ${{ matrix.target }}
+        run: |
+          cargo +nightly fuzz run ${{ matrix.target }} -- \
+            -max_total_time=${{ github.event.inputs.seconds || 600 }} \
+            -max_len=65536 \
+            -rss_limit_mb=2560
+
+      # Only produced when something crashed — worth keeping, and worth turning
+      # into a unit test before the fix lands.
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-artifacts-${{ matrix.target }}
+          path: fuzz/artifacts/
+          if-no-files-found: ignore

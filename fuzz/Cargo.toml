@@ -1,0 +1,33 @@
+[package]
+name = "hqr-generate-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+# Its own workspace: the fuzz crate is built by cargo-fuzz on nightly with
+# sanitizer flags, and has no business in the library's build graph.
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.hqr-generate]
+path = ".."
+features = ["decode"]
+
+[[bin]]
+name = "decode_bytes"
+path = "fuzz_targets/decode_bytes.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "decode_rgba"
+path = "fuzz_targets/decode_rgba.rs"
+test = false
+doc = false
+bench = false

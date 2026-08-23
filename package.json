@@ -94,6 +94,8 @@
     "test": "npm run test:rust && npm run test:node",
     "lint": "cargo fmt --all -- --check && cargo clippy --features decode --all-targets -- -D warnings",
     "bench": "cargo bench --bench generate",
+    "fuzz:seeds": "cargo run --release --features decode --example fuzz_seeds",
+    "fuzz": "npm run fuzz:seeds && cargo +nightly fuzz run decode_bytes -- -max_total_time=300 -max_len=65536",
     "size": "node scripts/size-report.mjs",
     "prepack": "npm run clean && npm run build && npm run test:node",
     "publish:test": "npm publish --tag next --registry=https://registry.npmjs.org --access public",

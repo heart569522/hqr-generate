@@ -49,14 +49,17 @@ Two things still need real-world confirmation and cannot be replaced by tests:
   `to_rgba8()` call in this crate, which its accounting never sees. The header is
   now checked before any pixels are read, and the conversion is to luma instead
   of RGBA — a quarter of the memory and faster on legitimate images too.
-- **Fuzz the decoder.** `cargo-fuzz` over `decode_all_from_bytes` and
-  `decode_all_from_rgba`, on a nightly toolchain. The memory issue above was
-  found by reading the code; coverage-guided fuzzing is for the panics that
-  reading will not find. Note that random bytes are nearly useless here —
-  `guess_format` rejects them immediately — so the corpus should be mutations of
-  valid PNG/JPEG/WebP produced by the encoder.
-  `panic = "abort"` in the release profile means any panic takes the whole WASM
-  instance with it, so a single reachable panic is a denial of service.
+- ~~**Fuzz the decoder.**~~ **Done, and it paid for itself.** Two `cargo-fuzz`
+  targets, seeded from real encoder output, plus a weekly CI run. The RGBA
+  target found a reachable panic inside `rqrr` 0.7.1 within five minutes: an
+  assertion on a value computed from image data. Fixed by upgrading `rqrr` to
+  0.10; the input is now a regression test.
+
+  Worth recording *why* this class of bug is severe here:
+  `wasm32-unknown-unknown` has `panic-strategy: abort`, so a panic in the decode
+  path kills the WASM instance and **cannot be caught** — no `catch_unwind`, no
+  defence in depth. Keeping the dependency current and continuing to fuzz is the
+  whole mitigation.
 - **Run the browser tests in CI.** `tests/browser.html` already holds 13 real
   assertions — including the scanner driven by a canvas-backed `MediaStream` —
   and they only run when a human opens the page. Playwright headless, one job.

@@ -329,6 +329,34 @@ fn oversized_rgba_is_refused_too() {
     assert_eq!(err.code(), "IMAGE_TOO_LARGE");
 }
 
+/// Regression: fuzzing found RGBA input that panicked inside rqrr 0.7.1.
+///
+/// `Perspective::map` asserts its result fits in an `i32`, but the value is
+/// computed from image data: a degenerate transform drives the denominator
+/// toward zero and the coordinate to infinity or NaN, and the assert fires.
+/// rqrr 0.10 no longer reaches that state.
+///
+/// This matters more here than in an ordinary dependency, because
+/// `wasm32-unknown-unknown` has `panic-strategy: abort` — a panic anywhere in
+/// the decode path takes the whole WASM instance with it and cannot be caught.
+#[test]
+fn fuzz_regression_degenerate_perspective_does_not_panic() {
+    let raw = include_bytes!("fixtures/rqrr-perspective-panic.rgba");
+
+    // Same geometry the fuzz target derives: width from the first two bytes.
+    let width = (usize::from(u16::from_le_bytes([raw[0], raw[1]])) % 300) + 1;
+    let rest = &raw[2..];
+    let height = rest.len() / (width * 4);
+
+    // Must return — Ok or a typed Err — rather than abort the process.
+    let result = decode_all(DecodeInput::Rgba {
+        width: width as u32,
+        height: height as u32,
+        data: &rest[..width * height * 4],
+    });
+    assert!(result.is_err() || result.is_ok());
+}
+
 #[test]
 fn decode_failures_are_typed() {
     let blank = qr_png("x", GenerateOptions::default()).unwrap();
