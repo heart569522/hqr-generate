@@ -11,6 +11,8 @@ import * as pkg from "../../index.node.js";
 import {
   decode,
   decodeAll,
+  decodeAny,
+  decodeAnyAll,
   qrMany,
   barcodeModules,
   barcodePng,
@@ -159,6 +161,8 @@ test("the public surface is exactly what 1.0 promises", () => {
       "barcodeSvg",
       "decode",
       "decodeAll",
+      "decodeAny",
+      "decodeAnyAll",
       "qrMany",
       "qrModules",
       "qrPng",
@@ -318,7 +322,41 @@ test("barcodes: data a symbology cannot represent is rejected", () => {
   );
 });
 
+test("decodeAny reads barcodes as well as QR", () => {
+  const opts = { moduleWidth: 3, height: 100, quiet: 12 };
+
+  // The whole reason for a second decoder: this is what `decode` cannot do.
+  const bar = barcodePng("HELLO-123", { format: "code128", ...opts });
+  assert.equal(decodeAny(bar), "HELLO-123");
+
+  const [r] = decodeAnyAll(bar);
+  assert.equal(r.format, "code128");
+  assert.equal(r.points.length, 2, "a 1D symbol reports the ends of the bar row");
+
+  // ...and it still reads QR, so a caller that needs both loads one module.
+  const qr = qrPng("https://example.com/any");
+  assert.equal(decodeAny(qr), "https://example.com/any");
+  assert.equal(decodeAnyAll(qr)[0].format, "qr");
+});
+
+test("decodeAny reports the format it recognised, not the one you encoded", () => {
+  // UPC-A is a zero-prefixed EAN-13 — the same bars under two names.
+  const png = barcodePng("012345678901", {
+    format: "ean13",
+    moduleWidth: 3,
+    height: 100,
+    quiet: 12,
+  });
+  assert.equal(decodeAnyAll(png)[0].format, "upca");
+});
+
+test("the small decoder stays small — it cannot read barcodes", () => {
+  const bar = barcodePng("HELLO-123", { format: "code128", moduleWidth: 3, height: 100, quiet: 12 });
+  assert.throws(() => decode(bar), (e) => e.code === "QR_NOT_FOUND");
+});
+
 test("ready() resolves", async () => {
   await ready();
   await ready({ decoder: true });
+  await ready({ anyDecoder: true });
 });

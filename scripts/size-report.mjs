@@ -16,8 +16,10 @@ import { gzipSync } from "node:zlib";
 const BUDGET_GZIP = {
   "pkg/web/barqr_bg.wasm": 120_000,
   "pkg/web-decode/barqr_bg.wasm": 355_000,
+  "pkg/web-decode-any/barqr_bg.wasm": 700_000,
   "pkg/nodejs/barqr.js": 165_000,
   "pkg/nodejs-decode/barqr.js": 425_000,
+  "pkg/nodejs-decode-any/barqr.js": 900_000,
 };
 
 const kb = (n) => `${(n / 1024).toFixed(1)} KB`;

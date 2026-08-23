@@ -22,8 +22,10 @@ const PKG_DIR = new URL("../pkg/", import.meta.url).pathname;
 const OUTPUTS = {
   web: { type: "module", inline: false },
   "web-decode": { type: "module", inline: false },
+  "web-decode-any": { type: "module", inline: false },
   nodejs: { type: "commonjs", inline: true },
   "nodejs-decode": { type: "commonjs", inline: true },
+  "nodejs-decode-any": { type: "commonjs", inline: true },
 };
 
 const STRIP = ["README.md", "LICENSE", ".gitignore"];

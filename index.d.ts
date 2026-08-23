@@ -168,6 +168,39 @@ export interface BarcodeModules {
   text: string;
 }
 
+/** A symbology `decodeAny` can recognise. */
+export type DecodedFormat =
+  | "qr"
+  | "aztec"
+  | "datamatrix"
+  | "pdf417"
+  | "code128"
+  | "code39"
+  | "code93"
+  | "codabar"
+  | "ean13"
+  | "ean8"
+  | "upca"
+  | "upce"
+  | "itf"
+  | "other";
+
+/** One symbol found by {@link decodeAnyAll}. */
+export interface DecodedSymbol {
+  text: string;
+  /**
+   * The symbology that was recognised — which is not always the one you
+   * encoded: UPC-A *is* a zero-prefixed EAN-13, and a decoder is entitled to
+   * report either.
+   */
+  format: DecodedFormat;
+  /**
+   * Where the symbol sits in the source image. 1D symbologies report the two
+   * ends of the bar row; 2D report three or four corners.
+   */
+  points: { x: number; y: number }[];
+}
+
 /** One decoded QR code, located in the source image. */
 export interface DecodedQr {
   text: string;
@@ -256,6 +289,18 @@ export function decode(input: Uint8Array | ImageData): Promise<string>;
  */
 export function decodeAll(input: Uint8Array | ImageData): Promise<DecodedQr[]>;
 
+/**
+ * Read a symbol of **any** supported symbology — QR, DataMatrix, Aztec, PDF417
+ * and the 1D formats.
+ *
+ * Loads a separate, larger WASM module on first use: roughly twice the QR-only
+ * decoder. If QR is all you read, {@link decode} costs a third as much.
+ */
+export function decodeAny(input: Uint8Array | ImageData): Promise<string>;
+
+/** Every symbol in the image, of any supported symbology, with its position. */
+export function decodeAnyAll(input: Uint8Array | ImageData): Promise<DecodedSymbol[]>;
+
 /* =========================================================
  * Lifecycle
  * ======================================================= */
@@ -264,5 +309,5 @@ export function decodeAll(input: Uint8Array | ImageData): Promise<DecodedQr[]>;
  * Preload the WASM modules so the first render does not pay for the download.
  * Safe to call repeatedly.
  */
-export function ready(opts?: { decoder?: boolean }): Promise<void>;
+export function ready(opts?: { decoder?: boolean; anyDecoder?: boolean }): Promise<void>;
 

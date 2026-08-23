@@ -93,6 +93,21 @@ appears in 23 files for npm alone and 39 once the crate and repo are included.
 
 ### Added
 
+- **Barcode decoding**, through `decodeAny` and `decodeAnyAll` — QR, DataMatrix,
+  Aztec, PDF417 and the 1D formats, each result carrying the symbology that was
+  recognised and where it sits in the image.
+
+  It ships as a **third WASM module**, not as a replacement for the QR decoder.
+  Reading QR alone stays at 267 KB gzipped; reading everything costs 598 KB, and
+  nothing fetches it until `decodeAny` is called. Trimming `rxing` to the
+  features this crate actually uses — no result-content parsing, no serde, no
+  encoder side — took that from 852 KB.
+
+  Two behaviours worth knowing, both correct and both now pinned by tests:
+  UPC-A *is* a zero-prefixed EAN-13, so a decoder may report either; and
+  Codabar's `A`–`D` start/stop characters are delimiters, so they come back
+  stripped.
+
 - **1D barcodes.** Nine symbologies — Code 128, Code 39 (with or without check
   character), Code 93, Code 11, Codabar, EAN-8, EAN-13 and ITF — as PNG, SVG or
   the raw bar pattern, through `barcodePng` / `barcodeSvg` /

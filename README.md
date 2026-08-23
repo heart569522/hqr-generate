@@ -67,6 +67,8 @@ export function GET() {
 | `barcodeModules(text, opts?)` | `Promise<BarcodeModules>` | `BarcodeModules` |
 | `decode(input)` | `Promise<string>` | `string` |
 | `decodeAll(input)` | `Promise<DecodedQr[]>` | `DecodedQr[]` |
+| `decodeAny(input)` | `Promise<string>` | `string` |
+| `decodeAnyAll(input)` | `Promise<DecodedSymbol[]>` | `DecodedSymbol[]` |
 | `ready(opts?)` | `Promise<void>` | `Promise<void>` |
 
 `decode` takes a `Uint8Array` of image bytes (PNG/JPEG/WebP) or a canvas `ImageData`, and loads the decoder on first use — `ready({ decoder: true })` warms it early.
@@ -248,8 +250,12 @@ for (let y = 0; y < n; y++) {
 
 | | Download | |
 | --- | --- | --- |
-| Encoder (QR **and** barcodes) | **100 KB gz** | loaded on first `generate*` or `ready()` |
-| Decoder | 280 KB gz | only if you call `decode` |
+| Encoder (QR **and** barcodes) | **100 KB gz** | loaded on first `qr*` / `barcode*` call |
+| Decoder, QR only | 267 KB gz | only if you call `decode` |
+| Decoder, any symbology | 598 KB gz | only if you call `decodeAny` |
+
+Three modules, fetched independently. Reading QR costs 267 KB; reading barcodes
+too costs 598 KB, and you only pay it by asking for it.
 
 Generating a typical URL at 320 px takes **~86 µs** and produces a 1.9 KB PNG or a 5.2 KB SVG (Apple Silicon, release + LTO). Run `npm run bench` for the full suite.
 

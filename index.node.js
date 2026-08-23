@@ -21,6 +21,13 @@ function decoder() {
   return (_decoder ??= require("./pkg/nodejs-decode/barqr.js"));
 }
 
+// The any-symbology decoder is roughly twice the size of the QR-only one, so it
+// is a separate module read off disk only when something asks for it.
+let _anyDecoder;
+function anyDecoder() {
+  return (_anyDecoder ??= require("./pkg/nodejs-decode-any/barqr.js"));
+}
+
 /**
  * Present for parity with the browser entry, where it preloads WASM. In Node
  * the encoder is already loaded by the time this module is imported.
@@ -30,6 +37,7 @@ function decoder() {
  */
 export async function ready(opts) {
   if (opts?.decoder) decoder();
+  if (opts?.anyDecoder) anyDecoder();
 }
 
 /**
@@ -135,5 +143,27 @@ export function decode(input) {
  */
 export function decodeAll(input) {
   return decoder().decode_all(input);
+}
+
+/**
+ * Read a symbol of *any* supported symbology — QR, DataMatrix, Aztec, PDF417
+ * and the 1D formats. Loads a larger module on first use; {@link decode} is a
+ * third of the size if QR is all you need.
+ *
+ * @param {Uint8Array | ImageData} input
+ * @returns {string}
+ */
+export function decodeAny(input) {
+  return anyDecoder().decode_any(input);
+}
+
+/**
+ * Every symbol in the image, of any supported symbology.
+ *
+ * @param {Uint8Array | ImageData} input
+ * @returns {import('./index.node').DecodedSymbol[]}
+ */
+export function decodeAnyAll(input) {
+  return anyDecoder().decode_any_all(input);
 }
 

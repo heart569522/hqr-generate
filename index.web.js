@@ -24,6 +24,7 @@ import {
 
 let _encoderReady;
 let _decoderReady;
+let _anyDecoderReady;
 
 function ensureEncoder() {
   return (_encoderReady ??= init());
@@ -31,6 +32,16 @@ function ensureEncoder() {
 
 function ensureDecoder() {
   return (_decoderReady ??= import("./pkg/web-decode/barqr.js").then(async (mod) => {
+    await mod.default();
+    return mod;
+  }));
+}
+
+// A third module, and the largest. It reads every symbology rxing supports, and
+// costs roughly twice the QR-only decoder — which is exactly why it is separate:
+// a page that only scans QR codes should never fetch it.
+function ensureAnyDecoder() {
+  return (_anyDecoderReady ??= import("./pkg/web-decode-any/barqr.js").then(async (mod) => {
     await mod.default();
     return mod;
   }));
@@ -44,7 +55,11 @@ function ensureDecoder() {
  * @returns {Promise<void>}
  */
 export async function ready(opts) {
-  await Promise.all([ensureEncoder(), opts?.decoder ? ensureDecoder() : null]);
+  await Promise.all([
+    ensureEncoder(),
+    opts?.decoder ? ensureDecoder() : null,
+    opts?.anyDecoder ? ensureAnyDecoder() : null,
+  ]);
 }
 
 /**
@@ -177,5 +192,32 @@ export async function decode(input) {
 export async function decodeAll(input) {
   const mod = await ensureDecoder();
   return mod.decode_all(input);
+}
+
+/**
+ * Read a symbol of *any* supported symbology — QR, DataMatrix, Aztec, PDF417
+ * and the 1D formats — out of image bytes or `ImageData`.
+ *
+ * Loads a separate, larger WASM module on first use. If you only ever read QR
+ * codes, {@link decode} is a third of the download.
+ *
+ * @param {Uint8Array | ImageData} input
+ * @returns {Promise<string>}
+ */
+export async function decodeAny(input) {
+  const mod = await ensureAnyDecoder();
+  return mod.decode_any(input);
+}
+
+/**
+ * Every symbol in the image, of any supported symbology, each with the format
+ * that was recognised and where it sits.
+ *
+ * @param {Uint8Array | ImageData} input
+ * @returns {Promise<import('./index').DecodedSymbol[]>}
+ */
+export async function decodeAnyAll(input) {
+  const mod = await ensureAnyDecoder();
+  return mod.decode_any_all(input);
 }
 

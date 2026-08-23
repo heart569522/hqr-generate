@@ -7,6 +7,7 @@
  * ======================================================= */
 
 import type {
+  DecodedSymbol,
   BarcodeModules,
   BarcodeOptions,
   BarcodeSvgOptions,
@@ -18,6 +19,8 @@ import type {
 
 export type {
   BarcodeFormat,
+  DecodedFormat,
+  DecodedSymbol,
   BarcodeModules,
   BarcodeOptions,
   BarcodeSvgOptions,
@@ -67,9 +70,18 @@ export function decode(input: Uint8Array | ImageData): string;
 export function decodeAll(input: Uint8Array | ImageData): DecodedQr[];
 
 /**
+ * Read a symbol of **any** supported symbology. Loads a larger module on first
+ * use; {@link decode} is a third of the size if QR is all you need.
+ */
+export function decodeAny(input: Uint8Array | ImageData): string;
+
+/** Every symbol in the image, of any supported symbology, with its position. */
+export function decodeAnyAll(input: Uint8Array | ImageData): DecodedSymbol[];
+
+/**
  * Present for parity with the browser entry. In Node the encoder is already
  * loaded; pass `{ decoder: true }` to warm the decoder too.
  */
-export function ready(opts?: { decoder?: boolean }): Promise<void>;
+export function ready(opts?: { decoder?: boolean; anyDecoder?: boolean }): Promise<void>;
 
 /** @deprecated use {@link qrSvg} */

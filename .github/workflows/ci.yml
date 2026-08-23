@@ -52,6 +52,8 @@ jobs:
           cargo check --all-targets --no-default-features --features decode
           cargo check --all-targets --no-default-features --features generate,decode
           cargo check --all-targets --no-default-features --features barcode,decode
+          cargo check --all-targets --no-default-features --features decode-any
+          cargo check --all-targets --no-default-features --features barcode,decode-any
 
   msrv:
     name: MSRV
@@ -78,6 +80,8 @@ jobs:
           cargo check --all-targets --no-default-features --features decode
           cargo check --all-targets --no-default-features --features generate,decode
           cargo check --all-targets --no-default-features --features barcode,decode
+          cargo check --all-targets --no-default-features --features decode-any
+          cargo check --all-targets --no-default-features --features barcode,decode-any
 
   wasm:
     name: WASM + npm package
@@ -103,6 +107,7 @@ jobs:
         run: |
           cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,generate,barcode -- -D warnings
           cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,decode -- -D warnings
+          cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,decode-any -- -D warnings
 
       - run: npm ci
 

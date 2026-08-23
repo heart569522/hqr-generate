@@ -92,7 +92,7 @@ impl std::error::Error for GenerateError {}
 /// Something went wrong while reading a QR code out of an image.
 ///
 /// `#[non_exhaustive]`: match with a `_` arm. See [`GenerateError`].
-#[cfg(feature = "decode")]
+#[cfg(any(feature = "decode", feature = "decode-any"))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum DecodeError {
@@ -118,7 +118,7 @@ pub enum DecodeError {
     Corrupt(String),
 }
 
-#[cfg(feature = "decode")]
+#[cfg(any(feature = "decode", feature = "decode-any"))]
 impl DecodeError {
     /// Stable identifier, safe to branch on. Surfaced to JS as `err.code`.
     pub fn code(&self) -> &'static str {
@@ -132,7 +132,7 @@ impl DecodeError {
     }
 }
 
-#[cfg(feature = "decode")]
+#[cfg(any(feature = "decode", feature = "decode-any"))]
 impl fmt::Display for DecodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -157,5 +157,5 @@ impl fmt::Display for DecodeError {
     }
 }
 
-#[cfg(feature = "decode")]
+#[cfg(any(feature = "decode", feature = "decode-any"))]
 impl std::error::Error for DecodeError {}

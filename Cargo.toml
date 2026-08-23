@@ -26,6 +26,11 @@ generate = ["dep:fast_qr", "dep:png"]
 barcode = ["generate", "dep:barcoders"]
 # Decoder: reads QR out of raw RGBA or encoded image bytes.
 decode = ["dep:image", "dep:rqrr"]
+# Decoder for every symbology rxing supports — QR plus the 1D formats, plus
+# DataMatrix, PDF417 and Aztec. Costs ~220 KB gzipped over `decode`, which is
+# why it ships as its own WASM module rather than replacing rqrr: a page that
+# only reads QR should not pay for it.
+decode-any = ["dep:image", "dep:rxing", "dep:getrandom"]
 # JS bindings. Compose with `generate` and/or `decode` to pick what ships.
 wasm = ["dep:wasm-bindgen", "dep:js-sys"]
 
@@ -57,6 +62,27 @@ image = { version = "0.25", optional = true, default-features = false, features 
   "webp",
 ] }
 rqrr  = { version = "0.10", optional = true }
+# `default-features = false` plus only what a decoder needs. The defaults add
+# result-content parsing (chrono-tz, fancy-regex, uriparse), serde, the encoder
+# side, and rxing's own image integration — none of which this crate calls,
+# since it hands rxing a luminance buffer and wants the text back.
+rxing = { version = "0.9", default-features = false, features = [
+  "decoders",
+  "full_barcode_format_support",
+  "multi_barcode_readers",
+  "encoding_rs",
+  # chrono/wasmbind. rxing reaches for `Utc::now()`, which panics on
+  # wasm32-unknown-unknown without a browser clock behind it — and with
+  # `panic = "abort"` that surfaces as a bare `RuntimeError: unreachable`.
+  "wasm_support",
+], optional = true }
+
+# rxing pulls in `rand`, and therefore `getrandom`. On wasm32-unknown-unknown
+# getrandom 0.2 has no backend unless its `js` feature is on, and a call without
+# one aborts — which, with `panic = "abort"`, surfaces as a bare
+# `RuntimeError: unreachable` with no message to go on.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"], optional = true }
 
 [dev-dependencies]
 criterion = "0.5"
@@ -80,6 +106,10 @@ required-features = ["generate", "decode"]
 [[example]]
 name = "fuzz_seeds"
 required-features = ["generate"]
+
+[[test]]
+name = "barcode_roundtrip"
+required-features = ["barcode", "decode-any"]
 
 [profile.release]
 opt-level = 3

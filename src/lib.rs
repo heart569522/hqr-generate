@@ -70,9 +70,12 @@ pub fn barcode_svg(
 
 #[cfg(feature = "decode")]
 pub use core::decode::{Corner, QrResult, decode, decode_all};
-#[cfg(feature = "decode")]
+
+#[cfg(feature = "decode-any")]
+pub use core::decode_any::{AnyResult, Format, decode_any, decode_any_all};
+#[cfg(any(feature = "decode", feature = "decode-any"))]
 pub use core::types::DecodeInput;
-#[cfg(feature = "decode")]
+#[cfg(any(feature = "decode", feature = "decode-any"))]
 pub use error::DecodeError;
 
 /// Encode `text` as a 1-bit grayscale PNG.
