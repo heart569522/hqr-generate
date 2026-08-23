@@ -97,7 +97,7 @@ Other files:
 
 Every combination must compile **and lint** independently. `cargo check` is not enough: a helper used by two features but not a third is dead code only in that third build, and only clippy with `-D warnings`, per feature set, reports it. Run `npm run lint:all`, which is exactly what CI runs.
 
-**The Node binaries are inlined as base64 by `scripts/finalize-pkg.mjs`, and must stay that way.** wasm-pack's Node glue locates its binary with `readFileSync(__dirname + "/barqr_bg.wasm")`, and any bundler that pulls that CJS module into its own output rewrites `__dirname`, so the read fails with `ENOENT` at import time — Next.js server components, route handlers, serverless bundles.
+**The Node binaries are inlined as base64 by `scripts/finalize-pkg.mjs`, and must stay that way.** wasm-pack's Node glue locates its binary with `readFileSync(__dirname + "/barqrcode_bg.wasm")`, and any bundler that pulls that CJS module into its own output rewrites `__dirname`, so the read fails with `ENOENT` at import time — Next.js server components, route handlers, serverless bundles.
 
 The usual workaround for WASM packages, `serverExternalPackages`, was tried and is **worse**: an externalized copy of `react/*.js` resolves its own `react`, so every client component using our hooks dies during SSR with `Cannot read properties of null (reading 'useRef')`. Both failures are silent in unit tests and only show up in a real framework, which is what `tests/my-app` exists to catch.
 

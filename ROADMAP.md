@@ -13,9 +13,10 @@ Everything below was decided or built for this release. The reasoning lives in
 
 **API, settled and frozen at 1.0**
 
-- Renamed — the old name described neither half of what this does. npm rejected
-  the bare `barqr` as too similar to an existing package, so the published name
-  is `barqrcode`; the crate and the repository stay `barqr`.
+- Renamed to `barqrcode` — package, crate and repository. The old name described
+  neither half of what this does. `barqr` was the intended name and npm refused
+  it as too similar to an existing package, as it refused `qrbc` for being too
+  close to `crc`, `grpc` and `rc`; short names lose that argument.
 - Every function names its symbol family: `qrPng`/`qrSvg`/`qrModules`/`qrMany`
   against `barcodePng`/`barcodeSvg`/`barcodeModules`. Hooks and composables line
   up one for one in React and Vue.
@@ -58,10 +59,12 @@ The three that needed a person are done, and the name is claimed. One step left.
 
 And the mechanical ones:
 
-- [x] **`barqrcode` claimed on npm, Trusted Publisher pointed at
-      `wirunrom/barqr` + `publish.yml`.** The publisher cannot be configured
-      until the package exists, so a `0.0.1` placeholder was published to claim
-      the name, then deprecated.
+- [x] **`barqrcode` claimed on npm.** The Trusted Publisher cannot be
+      configured until the package exists, so a `0.0.1` placeholder was
+      published to claim the name, then deprecated.
+- [ ] **Repoint the Trusted Publisher at `wirunrom/barqrcode` + `publish.yml`.**
+      It is still bound to the pre-rename repository name, and publishing fails
+      until it matches — renaming a repository redirects its links but not this.
 - [ ] **Tag `v1.0.0`.** `package.json` is already at 1.0.0 and the notes are
       written at `.github/release-notes/v1.0.0.md`. Pushing the tag is what
       publishes; nothing before it touches the registry.

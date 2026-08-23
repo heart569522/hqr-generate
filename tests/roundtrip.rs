@@ -3,8 +3,8 @@
 //! Run with `cargo test --features decode`.
 #![cfg(all(feature = "generate", feature = "decode"))]
 
-use barqr::core::decode::MAX_DECODE_PIXELS;
-use barqr::{
+use barqrcode::core::decode::MAX_DECODE_PIXELS;
+use barqrcode::{
     DecodeInput, Ecc, GenerateOptions, QrBitmap, QrModules, SizeMode, decode, decode_all,
     generate_qr_modules, png as qr_png, render_png, render_png_modules,
 };

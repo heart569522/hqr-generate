@@ -1,4 +1,4 @@
-use barqr::{
+use barqrcode::{
     GenerateOptions, generate_qr_bitmap, generate_qr_modules, render_png, render_png_modules,
     render_svg_modules,
 };
@@ -7,8 +7,8 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 const OPTS: GenerateOptions = GenerateOptions {
     size: 320,
     margin: 4,
-    ecc: barqr::Ecc::Q,
-    size_mode: barqr::SizeMode::Exact,
+    ecc: barqrcode::Ecc::Q,
+    size_mode: barqrcode::SizeMode::Exact,
     logo_space: 0,
 };
 

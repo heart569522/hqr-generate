@@ -31,7 +31,7 @@ name.
 `scripts/rename.mjs` performs the rename across the repo. The npm package, the
 crate and the repository share a prefix but not a spelling, so it renames each
 independently — a substring replace over the tree silently rewrites GitHub
-links and `barqr_bg.wasm` along with the import paths.
+links and `barqrcode_bg.wasm` along with the import paths.
 
 
 ### Security
@@ -242,7 +242,7 @@ the image you get back.
 - camelCase names (`qrPng`, `qrSvg`, `qrModules`); the 0.5
   snake_case names remain as aliases.
 - `barqrcode/node` subpath export.
-- Rust convenience helpers `barqr::png()` / `svg()`, and `GenerateOptions`
+- Rust convenience helpers `barqrcode::png()` / `svg()`, and `GenerateOptions`
   replacing the positional `(text, size, margin, ecc)` signature. Rust also gains
   `decode_all`, `Corner`, and `render_svg_modules_with_logo`.
 

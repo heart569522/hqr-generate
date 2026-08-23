@@ -6,9 +6,9 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wirunrom/barqr.git"
+    "url": "git+https://github.com/wirunrom/barqrcode.git"
   },
-  "homepage": "https://github.com/wirunrom/barqr#readme",
+  "homepage": "https://github.com/wirunrom/barqrcode#readme",
   "engines": {
     "node": ">=20.19"
   },

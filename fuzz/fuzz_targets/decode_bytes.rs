@@ -10,7 +10,7 @@
 //! them on the magic number before any decoder is reached.
 #![no_main]
 
-use barqr::{DecodeInput, decode_all};
+use barqrcode::{DecodeInput, decode_all};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

@@ -12,10 +12,8 @@ Fast, scan-reliable **QR codes and 1D barcodes** — generate and decode, Rust c
 npm i barqrcode
 ```
 
-Node 20.19+. The repository and the Rust crate are named `barqr`; npm would not
-take that name, so the published package is `barqrcode`. Same project.
-
-Coming from an earlier release, or from the package this one continues?
+Node 20.19+. Coming from an earlier release, or from the package this one
+continues?
 [MIGRATION.md](./MIGRATION.md) has the whole list — for most code it is the
 import path and nothing else.
 

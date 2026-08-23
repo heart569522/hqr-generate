@@ -10,7 +10,7 @@
 use std::fs;
 use std::path::Path;
 
-use barqr::{Ecc, GenerateOptions, QrModules, generate_qr_modules, png, svg};
+use barqrcode::{Ecc, GenerateOptions, QrModules, generate_qr_modules, png, svg};
 
 fn write(dir: &Path, name: &str, bytes: &[u8]) {
     fs::write(dir.join(name), bytes).expect("write seed");

@@ -71,14 +71,14 @@ test("the Node glue never touches the filesystem", async () => {
   // catches it here instead of in someone's deploy.
   for (const dir of ["nodejs", "nodejs-decode"]) {
     const glue = await readFile(
-      new URL(`../../pkg/${dir}/barqr.js`, import.meta.url),
+      new URL(`../../pkg/${dir}/barqrcode.js`, import.meta.url),
       "utf8",
     );
     assert.ok(!glue.includes("__dirname"), `pkg/${dir} still resolves a path at runtime`);
     assert.ok(!glue.includes("readFileSync"), `pkg/${dir} still reads its binary off disk`);
     assert.match(glue, /Buffer\.from\("[A-Za-z0-9+/]{100}/, `pkg/${dir} has no inline binary`);
 
-    await stat(new URL(`../../pkg/${dir}/barqr_bg.wasm`, import.meta.url)).then(
+    await stat(new URL(`../../pkg/${dir}/barqrcode_bg.wasm`, import.meta.url)).then(
       () => {
         throw new Error(`pkg/${dir} still ships a redundant .wasm alongside the inlined one`);
       },
@@ -91,11 +91,11 @@ test("the browser builds still load their .wasm as an asset", async () => {
   // The inlining is Node-only on purpose: bundlers handle a fetched .wasm fine,
   // and base64 in the browser would mean shipping 33% more over the network.
   for (const dir of ["web", "web-decode"]) {
-    const wasm = await stat(new URL(`../../pkg/${dir}/barqr_bg.wasm`, import.meta.url));
+    const wasm = await stat(new URL(`../../pkg/${dir}/barqrcode_bg.wasm`, import.meta.url));
     assert.ok(wasm.size > 100_000, `pkg/${dir} is missing its binary`);
 
     const glue = await readFile(
-      new URL(`../../pkg/${dir}/barqr.js`, import.meta.url),
+      new URL(`../../pkg/${dir}/barqrcode.js`, import.meta.url),
       "utf8",
     );
     assert.ok(!glue.includes("Buffer.from("), `pkg/${dir} should not inline its binary`);

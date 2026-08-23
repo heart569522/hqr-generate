@@ -34,7 +34,7 @@ const STRIP = ["README.md", "LICENSE", ".gitignore"];
 const INLINE_MARKER = "// Binary inlined at build time";
 
 const DISK_LOAD =
-  "const wasmPath = `${__dirname}/barqr_bg.wasm`;\n" +
+  "const wasmPath = `${__dirname}/barqrcode_bg.wasm`;\n" +
   "const wasmBytes = require('fs').readFileSync(wasmPath);";
 
 /**
@@ -56,8 +56,8 @@ const DISK_LOAD =
  * an asset, which bundlers already handle.
  */
 async function inlineWasm(dir) {
-  const jsPath = join(dir, "barqr.js");
-  const wasmPath = join(dir, "barqr_bg.wasm");
+  const jsPath = join(dir, "barqrcode.js");
+  const wasmPath = join(dir, "barqrcode_bg.wasm");
 
   const source = await readFile(jsPath, "utf8");
 

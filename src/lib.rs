@@ -10,7 +10,7 @@
 //! grid (~`n^2` bools, `n` is 21..=177), and only the renderer touches pixels.
 //!
 //! ```
-//! use barqr::{GenerateOptions, png};
+//! use barqrcode::{GenerateOptions, png};
 //!
 //! let bytes = png("https://example.com", GenerateOptions::default()).unwrap();
 //! assert_eq!(&bytes[..4], b"\x89PNG");

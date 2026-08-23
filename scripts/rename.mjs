@@ -14,7 +14,7 @@
 //   node scripts/rename.mjs --npm qrkit --dry-run
 //
 // `--crate` also renames the Rust crate, which changes the emitted wasm
-// filenames (barqr_bg.wasm and friends) and everything referring to
+// filenames (barqrcode_bg.wasm and friends) and everything referring to
 // them. Leave it off to rename only the npm package.
 
 import { readFile, readdir, writeFile } from "node:fs/promises";
@@ -23,9 +23,9 @@ import { join, relative } from "node:path";
 const ROOT = new URL("..", import.meta.url).pathname;
 
 const OLD_NPM = "barqrcode";
-const OLD_CRATE_SNAKE = "barqr";
-const OLD_CRATE_KEBAB = "barqr";
-const OLD_REPO = "wirunrom/barqr";
+const OLD_CRATE_SNAKE = "barqrcode";
+const OLD_CRATE_KEBAB = "barqrcode";
+const OLD_REPO = "wirunrom/barqrcode";
 
 // Files where the old name is the whole point, so only `__NEW_PKG__` gets
 // filled in. MIGRATION.md and the v1.0.0 note used to sit here, back when
@@ -50,16 +50,16 @@ const TEXT = /\.(md|json|js|mjs|ts|tsx|vue|rs|toml|html|yml|yaml)$/;
 ///
 /// Rust and Cargo files name the crate or the repository and never the npm
 /// package, so the npm rename skips them outright. Everywhere else the crate
-/// still turns up in wasm filenames (`barqr_bg.wasm`) and doc examples
-/// (`barqr::png`), and the repo in GitHub links — hold those aside, rename, put
+/// still turns up in wasm filenames (`barqrcode_bg.wasm`) and doc examples
+/// (`barqrcode::png`), and the repo in GitHub links — hold those aside, rename, put
 /// them back. `--crate` and `--repo` then rename them deliberately, if asked.
 const RUST = /\.(rs|toml)$/;
 const CRATE_OR_REPO = new RegExp(
   [
-    OLD_REPO,                                  // github.com/owner/barqr
-    `${OLD_CRATE_SNAKE}(_bg)?\\.(js|wasm|d\\.ts)`, // barqr.js, barqr_bg.wasm
-    `${OLD_CRATE_SNAKE}_`,                     // barqr_bg, other snake forms
-    `${OLD_CRATE_SNAKE}::`,                    // use barqr::…
+    OLD_REPO,                                  // github.com/owner/barqrcode
+    `${OLD_CRATE_SNAKE}(_bg)?\\.(js|wasm|d\\.ts)`, // barqrcode.js, barqrcode_bg.wasm
+    `${OLD_CRATE_SNAKE}_`,                     // barqrcode_bg, other snake forms
+    `${OLD_CRATE_SNAKE}::`,                    // use barqrcode::…
   ].join("|"),
   "g",
 );
@@ -126,14 +126,18 @@ for await (const file of walk(ROOT)) {
     }
     if (repo) after = after.replaceAll(OLD_REPO, repo);
     if (crateName) {
-      // The npm name starts with the crate name, so hold it aside or this
-      // turns `barqrcode` into `<newcrate>code`.
-      const npmNow = new RegExp(escape(npmName), "g");
-      after = holdAside(after, npmNow, (t) =>
-        t
-          .replaceAll(OLD_CRATE_SNAKE, crateName.replaceAll("-", "_"))
-          // Kebab last: the repo name contains it, and is already handled.
-          .replaceAll(OLD_CRATE_KEBAB, crateName));
+      // Both forms in ONE pass. Sequential replaceAll calls feed the first
+      // one's output into the second, which is invisible while snake and kebab
+      // differ and turns `barqrcode` into `barqrcodecode` the moment a name
+      // has no separator and they are the same string.
+      const snake = crateName.replaceAll("-", "_");
+      const oldForms = new RegExp(
+        [OLD_CRATE_SNAKE, OLD_CRATE_KEBAB].map(escape).join("|"),
+        "g",
+      );
+      // The npm name starts with the crate name, so hold it aside too.
+      after = holdAside(after, new RegExp(escape(npmName), "g"), (t) =>
+        t.replace(oldForms, (m) => (m === OLD_CRATE_SNAKE ? snake : crateName)));
     }
   }
 

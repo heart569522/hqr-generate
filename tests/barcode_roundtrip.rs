@@ -3,7 +3,7 @@
 //! Run with `cargo test --features barcode,decode-any`.
 #![cfg(all(feature = "barcode", feature = "decode-any"))]
 
-use barqr::{
+use barqrcode::{
     BarcodeOptions, DecodeInput, Symbology, barcode_png, decode_any, decode_any_all,
     generate_barcode_modules,
 };
@@ -93,7 +93,7 @@ fn qr_still_decodes_through_the_any_format_path() {
     // the small one because that is all it does, this one because it does
     // everything.
     let text = "https://example.com/any-format";
-    let png = barqr::png(text, barqr::GenerateOptions::default()).unwrap();
+    let png = barqrcode::png(text, barqrcode::GenerateOptions::default()).unwrap();
 
     let result = decode_any(DecodeInput::ImageBytes(&png)).unwrap();
     assert_eq!(result.text, text);
