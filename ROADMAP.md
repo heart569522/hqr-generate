@@ -2,126 +2,85 @@
 
 **1.0 is not a feature target. It is a promise that the API stops changing.**
 
-That makes the question "what still needs to change?", not "what else can we add".
-Everything below either closes a decision that would be breaking later, or buys
-the confidence to make that promise honestly.
-
-Today the package exposes **28 public functions** (11 main, 10 `/payload`,
-2 `/scanner`, 5 React hooks) plus the option and result types. All of it gets
-frozen at 1.0.
+The code for it is done. What remains cannot be done by reading the repository.
 
 ---
 
-## Scope note
+## Done
 
-There is no meaningful installed base yet, and the one real integration is the
-maintainer's own. That removes the usual reason to stage breaking changes
-carefully across releases: **make the API right now, in one pass, and freeze it.**
+Everything below was decided or built for this release. The reasoning lives in
+`CHANGELOG.md`; this is the checklist.
 
-Two things still need real-world confirmation and cannot be replaced by tests:
+**API, settled and frozen at 1.0**
 
-- **PromptPay against a real banking app** — the payload structure and its
-  CRC-16/CCITT-FALSE checksum are covered, an actual payment is not
-- **The scanner on real phone cameras**, iOS and Android
+- Renamed to `barqr`, package, crate and repository — the old name described
+  neither half of what this does.
+- Every function names its symbol family: `qrPng`/`qrSvg`/`qrModules`/`qrMany`
+  against `barcodePng`/`barcodeSvg`/`barcodeModules`. Hooks and composables line
+  up one for one in React and Vue.
+- `decode` returns a `string` and `decodeAll` returns objects — deliberate, and
+  written down rather than merely true.
+- `logo` stays SVG-only; PNG reserves the space and the caller composites.
+- `margin` stays at the spec's 4.
+- The 0.5 compatibility aliases and the bare `generate` alias are gone.
+- Error enums are `#[non_exhaustive]`, so new variants are not breaking.
+- The compatibility policy is in the README.
 
----
+**Capability**
 
-## 0.7.0 — one breaking pass
+- Nine 1D symbologies, encoded and decoded.
+- A third WASM module for any-symbology decoding, loaded only on demand.
+- The camera scanner reads barcodes with `formats: "any"`.
+- Vue and Nuxt, verified against a real Nuxt app with no bundler configuration.
 
-### Decisions, now made
+**Confidence**
 
-| | Question | Answer |
-| --- | --- | --- |
-| 1 | Drop the deprecated `generate_png` / `generate_svg` / `generate_modules` aliases? | **Dropped.** They existed for 0.5 compatibility; carrying something marked `@deprecated` into a 1.0 means removing it in 2.0 or never. |
-| 2 | Should `decode` return `DecodedQr` instead of `string`? | **No.** `decode` is the "read the text" case and `decodeAll` is the complete one. Making the common path worse for symmetry is the wrong trade. Written down in the compatibility policy so it reads as a decision. |
-| 3 | Keep `logo` as SVG-only? | **Yes.** PNG reserves the space and the caller composites. Decoding images inside the encoder build is precisely what would take it from 85 KB back to hundreds. |
-| 4 | Does `margin` stay at the spec's 4? | **Yes.** Real integrations lower it to 2 because the surrounding UI is white, which is fine and now documented — but the default should be the one that is correct without knowing the page. |
-
-Also removed: `render_svg(&QrBitmap)`, which emitted one `<rect>` per module —
-143 KB against the 5.2 KB the path renderer produces for the same code. The
-8-bit raster API it belonged to stays; it is a real way to get pixels, and the
-docs no longer call it "legacy".
-
-### Work
-
-- ~~**Remove the legacy 8-bit path.**~~ **Partly done.** `render_svg(&QrBitmap)`
-  is gone — it emitted one `<rect>` per module, 143 KB against 5.2 KB. The rest
-  stays: handing back pixels is a legitimate thing for a QR library to do, and
-  the docs no longer call it "legacy".
-- ~~**Cap the decoder's memory.**~~ **Done.** A manual audit ahead of fuzzing
-  found the first real vulnerability: a 1.2 MB PNG declaring 16000x16000 made
-  the decoder allocate **976 MB** and burn 2.2 s of CPU, an ~800x amplification.
-  `image`'s own `max_alloc` did not help, because the largest allocation was the
-  `to_rgba8()` call in this crate, which its accounting never sees. The header is
-  now checked before any pixels are read, and the conversion is to luma instead
-  of RGBA — a quarter of the memory and faster on legitimate images too.
-- ~~**Fuzz the decoder.**~~ **Done, and it paid for itself.** Two `cargo-fuzz`
-  targets, seeded from real encoder output, plus a weekly CI run. The RGBA
-  target found a reachable panic inside `rqrr` 0.7.1 within five minutes: an
-  assertion on a value computed from image data. Fixed by upgrading `rqrr` to
-  0.10; the input is now a regression test.
-
-  Worth recording *why* this class of bug is severe here:
-  `wasm32-unknown-unknown` has `panic-strategy: abort`, so a panic in the decode
-  path kills the WASM instance and **cannot be caught** — no `catch_unwind`, no
-  defence in depth. Keeping the dependency current and continuing to fuzz is the
-  whole mitigation.
-- ~~**Run the browser tests in CI.**~~ **Done.** 15 assertions run headless on
-  every push, covering WASM over HTTP, canvas round trips, object-URL lifetimes,
-  a live `MediaStream`, and all five Vue composables in a mounted app.
-- ~~**Check the MSRV.**~~ **Done, and it caught a lie on its first run.** The
-  declared 1.85 was impossible: `image` requires 1.88. Now declared honestly and
-  enforced against every feature set.
-- ~~**Add Windows to the matrix.**~~ **Done.**
-- **Decode off the main thread.** The scanner decodes inline, throttled. A worker
-  entry would keep a 1080p frame from janking the page. Additive, but it may
-  change what `createScanner` accepts — better in 0.7 than after the freeze.
-- ~~**Make the error enums `#[non_exhaustive]`.**~~ **Done.** Adding a variant
-  after 1.0 would otherwise be a breaking change for every Rust consumer.
-- **Publish the crate to crates.io** — *blocked on the package name.* The Rust
-  API is ready, but publishing under a name that is about to change would burn
-  it. This waits for the rename.
+- Two vulnerabilities found and fixed: unbounded allocation from a small file,
+  and a reachable panic that `panic = "abort"` made fatal on wasm.
+- Fuzzing, weekly, over both decode entry points.
+- Browser tests headless in CI; Windows and the declared MSRV covered.
+- Two framework fixtures that install the packed tarball, which have caught
+  three bugs no unit test could see.
 
 ---
 
-## 1.0.0 — freeze
+## Before tagging
 
-If 0.7 is right, this release changes almost no code.
+Three of these need a person, and no amount of testing substitutes for them.
 
-- ~~**Write the compatibility policy**~~ **Done** — in the README, including the
-  two deliberate exceptions and the deliberate omissions.
-- Make the API surface match the policy: anything not meant to be public gets
-  `@internal` or moves.
-- Cut the release from a 0.7.x that has been in real use, with the version bump
-  as the only diff.
+- [ ] **PromptPay against a real banking app.** The payload structure and its
+      CRC are covered and it round-trips through the decoder, but nothing
+      automated can confirm a bank accepts it. This is money.
+- [ ] **The scanner on real phone cameras**, iOS and Android. It is tested
+      against a canvas-backed `MediaStream`, which exercises every line of the
+      frame pump but not a sensor, an autofocus or a dim room.
+- [ ] **The maintainer's payment integration running on this API.**
 
-**Exit criteria** — all of these, or it is not 1.0 yet:
+And two mechanical steps, in this order:
 
-- [x] Every question in the decisions table is answered and shipped
-- [x] The decoder refuses oversized images before allocating for them
-- [x] Fuzzing has run without a crash for a meaningful duration
-- [x] Browser tests run in CI on every push
-- [x] MSRV and Windows covered in CI
-- [ ] PromptPay confirmed against a real banking app
-- [ ] The scanner confirmed on a real phone camera, iOS and Android
-- [ ] The maintainer's payment integration has run on 0.7.x without an API complaint
-
----
-
-## Explicitly not 1.0 material
-
-Colour, module shapes (dots, rounded eyes), more payload builders, a demo site,
-benchmark comparisons against other libraries. All of these are additive and can
-ship in 1.1 or 1.5 without breaking anyone.
-
-**Features do not make a 1.0. Stability does.** A 1.0 with a smaller API and a
-kept promise is worth more than a 1.0 with more surface and a caveat.
+- [ ] **Claim `barqr` on npm and point its Trusted Publisher at
+      `wirunrom/barqr` + `publish.yml`.** The publisher is currently bound to
+      the old repository name, so publishing fails until it is repointed — and
+      it cannot be configured until the package exists.
+- [ ] **`npm version 1.0.0`, then tag.** Release notes are already written at
+      `.github/release-notes/v1.0.0.md`; they carry a `__NEW_PKG__` placeholder
+      that `scripts/rename.mjs` fills.
 
 ---
 
-## Suggested order
+## Deliberately after 1.0
 
-Security work first, and for the reason the memory cap just demonstrated: it is
-the category that can *change the plan*. A limit had to become a new error
-variant and a new error code, which is an API change — cheap now, expensive
-after the freeze.
+All additive, none blocking, none worth delaying the freeze for.
+
+- **Publish the crate to crates.io.** The Rust API is ready and the name is
+  settled; this is just a `cargo publish` nobody has run yet.
+- **Decode off the main thread.** The scanner decodes inline, throttled. A
+  worker would keep a 1080p frame from janking the page, and can be added as an
+  option without touching the frozen surface.
+- **More symbologies to *encode*** — DataMatrix and PDF417 are already readable,
+  but not writable.
+
+Colour and module shapes stay out. They trade scan reliability for looks, and
+this library takes the other side of that trade.
+
+**Features do not make a 1.0. Stability does.**

@@ -1,31 +1,67 @@
 <!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>barqr — published package smoke test</title>
+    <style>
+      body { font: 14px/1.6 ui-monospace, monospace; margin: 2rem; max-width: 40rem; }
+      input, button { font: inherit; padding: 0.3rem 0.5rem; }
+      figure { margin: 1rem 0; }
+    </style>
+  </head>
   <body>
-    <h3>Generate SVG QR</h3>
-    <p>Checks the <em>published</em> package from a CDN. For the local build, open
-      <a href="./browser.html">browser.html</a> over HTTP.</p>
+    <h3>barqr — the published package</h3>
+    <p>
+      Loads <code>barqr</code> from a CDN, so it only works once the package is
+      released. For the local build open
+      <a href="./browser.html">browser.html</a> over HTTP.
+    </p>
 
-    <input id="text" value="hello world" />
+    <input id="text" value="hello world" size="30" />
     <button id="btn">Generate</button>
 
-    <br /><br />
-    <div id="svg"></div>
+    <figure>
+      <figcaption>QR</figcaption>
+      <div id="qr"></div>
+    </figure>
+    <figure>
+      <figcaption>Code 128</figcaption>
+      <div id="bar"></div>
+    </figure>
+    <p id="status"></p>
 
     <script type="module">
-      import { qrSvg } from "https://esm.sh/barqr@0.6.0";
+      // `@1` rather than a pinned patch: this page should keep working across
+      // the 1.x line without being edited on every release.
+      import { qrSvg, barcodeSvg } from "https://esm.sh/barqr@1";
 
       const btn = document.getElementById("btn");
       const input = document.getElementById("text");
-      const container = document.getElementById("svg");
+      const status = document.getElementById("status");
 
-      btn.onclick = async () => {
-        const svg = await qrSvg(input.value, {
-          size: 256,
+      async function render() {
+        status.textContent = "";
+        document.getElementById("qr").innerHTML = await qrSvg(input.value, {
+          size: 220,
           ecc: "Q",
         });
 
-        container.innerHTML = svg;
-      };
+        // Code 128 covers printable ASCII, so it takes whatever is typed —
+        // and reports it rather than mangling it when it cannot.
+        try {
+          document.getElementById("bar").innerHTML = await barcodeSvg(input.value, {
+            format: "code128",
+            height: 60,
+            text: true,
+          });
+        } catch (err) {
+          document.getElementById("bar").innerHTML = "";
+          status.textContent = `${err.code}: ${err.message}`;
+        }
+      }
+
+      btn.onclick = render;
+      render();
     </script>
   </body>
 </html>

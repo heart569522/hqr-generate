@@ -79,12 +79,35 @@ if (err.code === "IMAGE_TOO_LARGE") {
 }
 ```
 
-### 3. Vue and Nuxt are supported
+### 3. Barcodes and a second decoder are new
+
+Nothing to migrate — these did not exist in 0.6:
+
+```js
+await barcodePng("SKU-0001", { format: "code128" });
+await barcodeSvg("012345678901", { format: "ean13" });
+
+await decodeAny(image);     // QR, DataMatrix, Aztec, PDF417 and the 1D formats
+await decodeAnyAll(image);  // …every symbol, each with its format and position
+```
+
+`decodeAny` loads a **separate, larger** WASM module. If you only read QR codes,
+keep using `decode` — it is a third of the download and unchanged.
+
+The camera scanner takes `formats: "any"` to read barcodes too, and its results
+are now `{ text, format, points }` across both decoders. If you were reading
+`result.corners` from the scanner, that field is now `points`; `decodeAll` still
+returns `corners`.
+
+Hooks for all of it: `useBarcode`, `useBarcodeSvg`, `useBarcodeModules` and
+`useDecodeAny`, in both the React and Vue layers.
+
+### 4. Vue and Nuxt are supported
 
 New, so nothing to migrate — but if you had written your own composables around
 the core API, `barqr/vue` now ships five of them, SSR-safe for Nuxt.
 
-### Rust crate
+### 5. Rust crate
 
 Only if you depend on the crate rather than the npm package:
 

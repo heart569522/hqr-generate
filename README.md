@@ -198,14 +198,21 @@ import { createScanner } from "barqr/scanner";
 
 const scanner = await createScanner({
   video: document.querySelector("video"),
-  onResult: ({ text }) => console.log(text),
+  onResult: ({ text, format }) => console.log(format, text),
 });
 scanner.stop();
+
+// Barcodes too, at the cost of the larger decoder:
+await createScanner({ video, formats: "any", onResult });
 ```
+
+`formats: "any"` swaps in the multi-symbology decoder. Results are the same
+shape either way — `{ text, format, points }` — with `version` and `eccLevel`
+present only on QR read through the QR-only path.
 
 Frames come from `requestVideoFrameCallback` where available, downscaled to 640 px, one decode attempt every 120 ms, repeat hits suppressed for 1.5 s — all adjustable. Needs a secure context (https or localhost); rejects with `CAMERA_DENIED` or `CAMERA_UNAVAILABLE`.
 
-In React, `useScanner()` returns a `videoRef` to attach and releases the camera on unmount.
+In React and Vue, `useScanner()` returns a ref to attach to a `<video>`, takes the same `formats` option, and releases the camera when the component goes away.
 
 </details>
 

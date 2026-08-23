@@ -44,16 +44,18 @@ The script prints what it cannot do: updating npm's Trusted Publisher (bound to 
 
 ## Architecture
 
-### Four WASM binaries, not one
+### Six WASM binaries, not one
 
 The encoder and decoder are built separately and shipped as separate `.wasm` files:
 
-| out-dir             | features         | target   | ~gzip  |
-| ------------------- | ---------------- | -------- | ------ |
-| `pkg/web`           | `wasm,generate`  | web      | 85 KB  |
-| `pkg/web-decode`    | `wasm,decode`    | web      | 280 KB |
-| `pkg/nodejs`        | `wasm,generate`  | nodejs   | 85 KB  |
-| `pkg/nodejs-decode` | `wasm,decode`    | nodejs   | 280 KB |
+| out-dir                 | features                | target | ~gzip  |
+| ----------------------- | ----------------------- | ------ | ------ |
+| `pkg/web`               | `wasm,generate,barcode` | web    | 100 KB |
+| `pkg/web-decode`        | `wasm,decode`           | web    | 267 KB |
+| `pkg/web-decode-any`    | `wasm,decode-any`       | web    | 598 KB |
+| `pkg/nodejs*`           | the same three          | nodejs | —      |
+
+Three roles, two targets. The decoders are **not** alternatives to pick between at build time — both ship, and the JS layer loads whichever the caller's function implies. `decode` uses `rqrr` and reads QR only; `decodeAny` uses `rxing` and reads everything, at more than twice the size. Anyone reading only QR must never fetch the second one.
 
 The decoder is loaded lazily (`await import(...)` on web, `createRequire` on Node) the first time `decode` is called, so generate-only consumers never pay for it. **Do not merge the two back into one binary**, and do not add a dependency to the `generate` feature without checking `npm run size` — that budget is what keeps this honest (0.5.0 shipped 1.4 MB by accident).
 
@@ -77,6 +79,9 @@ The pipeline is split into two layers to keep fast paths cheap:
 
 Other files:
 - `src/core/types.rs` — `Ecc`, `SizeMode`, `GenerateOptions`, `QrBitmap`, `QrModules`, `DecodeInput`.
+- `src/core/barcode.rs` — behind `barcode`. `barcoders` returns a flat `Vec<u8>` of 0/1 per module, which maps straight onto the existing render approach. Each symbology **rejects** data it cannot represent rather than mangling it, and EAN computes its check digit from 12 digits — `BarcodeModules::text` carries what was actually encoded, so the digits printed under the bars always agree with the bars.
+- `src/render/barcode.rs` — one row of bars stretched to a height. The scanline is built once and copied down. SVG can print the human-readable data; PNG cannot, because text needs a font and a font is larger than everything else here put together.
+- `src/core/decode_any/` — behind `decode-any`. Two decoder behaviours are correct and surprising, and are pinned by `tests/barcode_roundtrip.rs`: UPC-A *is* a zero-prefixed EAN-13, so encoding one and decoding the other is right; and Codabar's `A`–`D` start/stop characters are delimiters, so they come back stripped.
 - `src/core/decode/` — behind `decode`. `impl_.rs` computes BT.601 luminance inline inside the `rqrr::PreparedImage::prepare_from_greyscale` closure (integer shifts, no intermediate grayscale `Vec`), and distinguishes "no symbol" (`NotFound`) from "symbol found, unreadable" (`Corrupt`).
 - `src/error.rs` — `GenerateError` / `DecodeError`, each with a stable `.code()` string that becomes `err.code` in JS. Never leak `{:?}` of a Rust enum to JS.
 - `src/wasm.rs` — `#[wasm_bindgen]` entry points, each gated on its feature. Errors cross as `js_sys::Error` with `code` set via `Reflect`. `generate_modules` returns a **plain JS object**, not a wasm-bindgen class, so callers have nothing to `.free()`.
@@ -84,11 +89,13 @@ Other files:
 - `ecc`, `size_mode` and `logo_space` cross the FFI boundary as `u8` (`0=L,1=M,2=Q,3=H`; `0=exact,1=fit`). The JS layer maps the strings — **never pass the string straight to WASM** (that was a real bug that silently forced every code to ECC Q).
 
 ### Cargo features
-- `generate` (default) — `fast_qr` + `png`, encoder and renderers.
-- `decode` — `image` + `rqrr`.
-- `wasm` — `wasm-bindgen` + `js-sys`, exposes `src/wasm.rs` for whichever of the two above is enabled.
+- `generate` (default) — `fast_qr` + `png`, QR encoding and the renderers.
+- `barcode` — implies `generate`; adds `barcoders` for nine 1D symbologies. Costs ~15 KB gzipped for all nine, because a 1D symbology is lookup tables and bit patterns next to QR's Reed-Solomon and masking.
+- `decode` — `image` + `rqrr`. QR only.
+- `decode-any` — `image` + `rxing`, every symbology. `rxing` is trimmed hard (`default-features = false`): its defaults add result-content parsing, serde, the encoder side and its own image integration, none of which this crate calls, and dropping them took the module from 852 KB to 598 KB gzipped. **`wasm_support` must stay on** — rxing reaches for `chrono::Utc::now()`, which has no clock on `wasm32-unknown-unknown`, and with `panic = "abort"` that surfaces as a bare `RuntimeError: unreachable` with nothing to go on.
+- `wasm` — `wasm-bindgen` + `js-sys`, exposing `src/wasm.rs` for whichever of the above are enabled.
 
-All three combinations must compile independently; CI checks the matrix.
+Every combination must compile **and lint** independently. `cargo check` is not enough: a helper used by two features but not a third is dead code only in that third build, and only clippy with `-D warnings`, per feature set, reports it. Run `npm run lint:all`, which is exactly what CI runs.
 
 **The Node binaries are inlined as base64 by `scripts/finalize-pkg.mjs`, and must stay that way.** wasm-pack's Node glue locates its binary with `readFileSync(__dirname + "/barqr_bg.wasm")`, and any bundler that pulls that CJS module into its own output rewrites `__dirname`, so the read fails with `ENOENT` at import time — Next.js server components, route handlers, serverless bundles.
 
