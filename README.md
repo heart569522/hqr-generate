@@ -329,21 +329,6 @@ context.
 
 ---
 
-## Development
-
-Needs a Rust toolchain with `wasm32-unknown-unknown`, plus [`wasm-pack`](https://rustwasm.github.io/wasm-pack/).
-
-```bash
-npm run build   # 4 WASM builds, binary inlining, React types
-npm test        # 33 Rust tests + 40 package tests
-npm run lint    # rustfmt + clippy
-npm run size    # bundle size budget (CI fails if a binary bloats)
-```
-
-`tests/browser.html` is a browser smoke test — serve over HTTP, WASM won't load from `file://`. [`tests/my-app`](./tests/my-app) is a Next.js fixture that installs the packed tarball and imports by package name; it covers client hooks, SSR, a route handler, and the scanner with a simulated camera.
-
-Architecture notes live in [CLAUDE.md](./CLAUDE.md); the path to 1.0 is in [ROADMAP.md](./ROADMAP.md).
-
 ## License
 
 MIT
