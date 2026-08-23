@@ -205,7 +205,7 @@ npm run size    # bundle size budget (CI fails if a binary bloats)
 
 `tests/browser.html` is a browser smoke test — serve over HTTP, WASM won't load from `file://`. [`tests/my-app`](./tests/my-app) is a Next.js fixture that installs the packed tarball and imports by package name; it covers client hooks, SSR, a route handler, and the scanner with a simulated camera.
 
-Architecture notes live in [CLAUDE.md](./CLAUDE.md).
+Architecture notes live in [CLAUDE.md](./CLAUDE.md); the path to 1.0 is in [ROADMAP.md](./ROADMAP.md).
 
 ## License
 
