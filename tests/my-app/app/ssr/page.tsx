@@ -6,17 +6,21 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-export default function SsrPage() {
+export default async function SsrPage() {
   const url = "https://example.com/rendered-on-the-server";
 
-  // All synchronous — this is the Node build.
-  const svg = qrSvg(url, { size: 240 });
-  const grid = qrModules(url, { size: 240 });
+  // These run synchronously: Node resolves the bare specifier to the sync
+  // build. TypeScript cannot see that — `moduleResolution: "bundler"` ignores
+  // the `node` condition and types them as the async browser build — so the
+  // awaits are here for the compiler. Awaiting a plain value costs a tick and
+  // keeps one tsconfig honest for both the client pages and this one.
+  const svg = await qrSvg(url, { size: 240 });
+  const grid = await qrModules(url, { size: 240 });
   const payload = promptpay({ target: "081-234-5678", amount: 199.5 });
-  const ppSvg = qrSvg(payload, { size: 240, ecc: "M" });
+  const ppSvg = await qrSvg(payload, { size: 240, ecc: "M" });
 
   // Prove the decoder works server-side too (it loads lazily, on this call).
-  const roundTrip = decode(qrPng(url));
+  const roundTrip = await decode(await qrPng(url));
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 p-8 font-mono text-sm">

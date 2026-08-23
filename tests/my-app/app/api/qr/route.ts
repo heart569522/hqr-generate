@@ -14,16 +14,21 @@ export function GET(request: Request) {
   const format = params.get("format") ?? "png";
   const size = Number(params.get("size") ?? 320);
 
+  // The bare specifier is the point of this route, so the casts stay. Node
+  // resolves it to the synchronous build, but `moduleResolution: "bundler"`
+  // ignores the `node` condition, so TypeScript types both calls as the async
+  // browser build. Server-only code that wants honest types imports
+  // `barqrcode/node` instead — which would not test what this route tests.
   try {
     if (format === "svg") {
-      return new Response(qrSvg(text, { size }), {
+      return new Response(qrSvg(text, { size }) as unknown as BodyInit, {
         headers: { "content-type": "image/svg+xml", "cache-control": "no-store" },
       });
     }
 
     // Note: no await. The Node build is synchronous.
     const bytes = qrPng(text, { size });
-    return new Response(bytes as BodyInit, {
+    return new Response(bytes as unknown as BodyInit, {
       headers: { "content-type": "image/png", "cache-control": "no-store" },
     });
   } catch (err) {

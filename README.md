@@ -55,6 +55,19 @@ export function GET() {
 }
 ```
 
+That cast is a TypeScript artefact, not a runtime one. On
+`moduleResolution: "bundler"` — what Next.js and Vite set — TypeScript ignores
+the `node` condition and types every call as the async browser build, including
+in server files. Node still resolves to the synchronous build and runs it. Two
+ways to drop the cast:
+
+- `import { qrPng } from "barqrcode/node"` in server-only files: sync types,
+  no cast, but the specifier no longer works if that file is ever bundled for
+  the browser.
+- `await` the call. Awaiting a plain value costs a tick and type-checks under
+  either view, which is what you want when one `tsconfig` covers both your
+  client and your server code.
+
 ---
 
 ## API
