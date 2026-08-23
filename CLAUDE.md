@@ -95,6 +95,15 @@ The usual workaround for WASM packages, `serverExternalPackages`, was tried and 
 - `package.json` `exports`: **`browser` and `node` must both come before `default`.** 0.5 listed `import` first, which made Node ESM resolve to the fetch-based web build. `tests/node/resolution.test.mjs` asserts this ordering.
 - `scripts/finalize-pkg.mjs` writes `{"type":"commonjs"}` / `{"type":"module"}` into each `pkg/*` directory. Do not just delete wasm-pack's `package.json` — the repo root is `"type": "module"`, so the CJS glue would be parsed as ESM.
 
+### Vue layer (`vue-src/` → `vue/`)
+
+Compiled by `tsconfig.vue.json`. `vue` is an optional peer dependency (>=3.3, for `toValue`).
+
+- **`watchEffect` runs during SSR**, unlike React's `useEffect`. Every composable is guarded by `isBrowser` in `vue-src/shared.ts`; without it a Nuxt page would `fetch()` the WASM binary while rendering on the server. `tests/node/vue-ssr.test.mjs` renders each composable through `vue/server-renderer` to keep that honest.
+- Options are read through `toValue` **inside** the effect, which is what makes the effect track each of them. Reading them outside would silently freeze the composable on its first values.
+- `useQrScanner` returns a ref named `video` so `<video ref="video">` binds by convention, and reads `opts.onResult` through the options object rather than capturing it — replacing the callback must not restart the camera.
+- The compiled output imports a bare `vue` specifier. Bundlers resolve it; `tests/browser.html` needs an import map.
+
 ### React layer (`react-src/` → `react/`)
 
 Compiled separately via `tsconfig.react.json`. `react` is an optional peer dependency.

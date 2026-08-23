@@ -9,6 +9,11 @@
       #summary { font-size: 1.2rem; font-weight: 700; margin-bottom: 1rem; }
       img, svg { image-rendering: pixelated; vertical-align: middle; }
     </style>
+    <!-- The compiled composables import a bare `vue` specifier, which every
+         bundler resolves but native ESM does not. An import map stands in. -->
+    <script type="importmap">
+      { "imports": { "vue": "/node_modules/vue/dist/vue.esm-browser.prod.js" } }
+    </script>
   </head>
   <body>
     <div id="summary">running…</div>
@@ -237,6 +242,67 @@
         }
 
         assert(video.srcObject === null, "scanner.stop() must release the stream");
+      });
+
+      await check("vue composables work in a real app", async () => {
+        // ฝั่ง client: SSR ถูกครอบด้วย tests/node/vue-ssr.test.mjs แล้ว
+        const { createApp, defineComponent, h, ref, nextTick } = await import("vue");
+        const { useGenerate, useGenerateModules } = await import("../vue/index.js");
+
+        const host = document.createElement("div");
+        document.body.append(host);
+
+        let api;
+        const App = defineComponent({
+          setup() {
+            const text = ref("https://example.com/vue");
+            const size = ref(240);
+            const gen = useGenerate(text, { size, ecc: "H" });
+            const grid = useGenerateModules(text, { size });
+            api = { text, size, gen, grid };
+            return () => h("img", { src: gen.src.value ?? undefined, width: 120 });
+          },
+        });
+
+        const app = createApp(App);
+        app.mount(host);
+
+        const settle = async (probe) => {
+          for (let i = 0; i < 60; i++) {
+            await new Promise((r) => setTimeout(r, 50));
+            await nextTick();
+            if (probe()) return true;
+          }
+          return false;
+        };
+
+        assert(await settle(() => api.gen.src.value), "useGenerate never produced a src");
+        assert(api.gen.bytes.value instanceof Uint8Array, "bytes should be a Uint8Array");
+        assert(api.grid.modules.value?.n > 0, "useGenerateModules produced no grid");
+        assert(api.gen.error.value == null, "unexpected error: " + api.gen.error.value);
+
+        // reactivity: เปลี่ยน ref แล้ว composable ต้อง regenerate
+        const before = api.gen.src.value;
+        const modulesBefore = api.grid.modules.value.n;
+        api.text.value = "a much longer payload that needs a bigger symbol than the first one";
+        assert(await settle(() => api.gen.src.value !== before), "changing the ref did not re-run");
+        assert(
+          api.grid.modules.value.n > modulesBefore,
+          "a longer payload should need more modules",
+        );
+
+        // unmount ต้อง revoke object URL ไม่ให้รั่ว
+        const leaked = api.gen.src.value;
+        app.unmount();
+        host.remove();
+        let revoked = false;
+        try {
+          const r = await fetch(leaked);
+          revoked = !r.ok;
+        } catch {
+          revoked = true;
+        }
+        assert(revoked, "object URL should be revoked on unmount");
       });
 
       await check("errors carry a code", async () => {

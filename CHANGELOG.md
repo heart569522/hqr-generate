@@ -49,6 +49,16 @@
 
 ### Added
 
+- **Vue composables** — `@wirunrom/hqr-generate/vue`, the same five the React
+  layer exposes. Values, refs and getters are all accepted, and everything is
+  released on scope disposal.
+
+  They are guarded for SSR, which matters more in Vue than it does in React:
+  `watchEffect` runs during server rendering while `useEffect` does not, so an
+  unguarded composable would try to `fetch()` the WASM binary mid-render and
+  take down every Nuxt page using it. Generation is deferred to the client;
+  server-rendered QR codes come from calling the synchronous Node API in a
+  server route instead.
 - **Fuzzing.** `cargo-fuzz` targets for both decode entry points, a seed corpus
   generated from real encoder output, and a weekly CI workflow. The corpus has
   to start from real images: random bytes never get past

@@ -25,6 +25,7 @@
     "scanner.js",
     "scanner.d.ts",
     "react/**",
+    "vue/**",
     "LICENSE",
     "README.md",
     "CHANGELOG.md",
@@ -54,6 +55,10 @@
       "types": "./react/index.d.ts",
       "default": "./react/index.js"
     },
+    "./vue": {
+      "types": "./vue/index.d.ts",
+      "default": "./vue/index.js"
+    },
     "./payload": {
       "types": "./payload.d.ts",
       "default": "./payload.js"
@@ -73,22 +78,27 @@
     "./package.json": "./package.json"
   },
   "peerDependencies": {
-    "react": ">=17"
+    "react": ">=17",
+    "vue": ">=3.3"
   },
   "peerDependenciesMeta": {
     "react": {
       "optional": true
+    },
+    "vue": {
+      "optional": true
     }
   },
   "scripts": {
-    "clean": "rm -rf pkg react",
+    "clean": "rm -rf pkg react vue",
     "build:wasm:web": "wasm-pack build --target web --out-dir pkg/web -- --no-default-features --features wasm,generate",
     "build:wasm:web-decode": "wasm-pack build --target web --out-dir pkg/web-decode -- --no-default-features --features wasm,decode",
     "build:wasm:node": "wasm-pack build --target nodejs --out-dir pkg/nodejs -- --no-default-features --features wasm,generate",
     "build:wasm:node-decode": "wasm-pack build --target nodejs --out-dir pkg/nodejs-decode -- --no-default-features --features wasm,decode",
     "build:wasm": "npm run build:wasm:web && npm run build:wasm:web-decode && npm run build:wasm:node && npm run build:wasm:node-decode && node scripts/finalize-pkg.mjs",
     "build:react": "tsc -p tsconfig.react.json",
-    "build": "npm run build:wasm && npm run build:react",
+    "build:vue": "tsc -p tsconfig.vue.json",
+    "build": "npm run build:wasm && npm run build:react && npm run build:vue",
     "test:rust": "cargo test --features decode",
     "test:node": "node --test tests/node/*.test.mjs",
     "test": "npm run test:rust && npm run test:node",
@@ -126,6 +136,7 @@
   "devDependencies": {
     "@types/react": "^19.2.9",
     "react": "^19.2.4",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vue": "^3.5.41"
   }
 }

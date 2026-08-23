@@ -89,7 +89,7 @@ try {
 
 ---
 
-## React
+## React & Vue
 
 ```tsx
 import { useGenerate } from "@wirunrom/hqr-generate/react";
@@ -101,9 +101,30 @@ function Ticket({ url }: { url: string }) {
 }
 ```
 
-`useGenerate` (PNG + a managed object URL) · `useGenerateSvg` · `useGenerateModules` (raw grid) · `useDecode` · `useQrScanner`
+```vue
+<script setup>
+import { useGenerate } from "@wirunrom/hqr-generate/vue";
+const props = defineProps(["url"]);
+const { src, error } = useGenerate(() => props.url, { size: 320 });
+</script>
 
-Hooks track the individual option fields, so an inline `{ size: 320 }` doesn't re-run WASM on every render.
+<template>
+  <img v-if="src" :src="src" width="320" height="320" alt="QR code" />
+</template>
+```
+
+Both expose the same five: `useGenerate` (bytes + a managed object URL) ·
+`useGenerateSvg` · `useGenerateModules` (raw grid) · `useDecode` · `useQrScanner`.
+
+React hooks track the individual option fields, so an inline `{ size: 320 }`
+doesn't re-run WASM on every render. Vue composables take plain values, refs or
+getters anywhere, and clean up on scope disposal.
+
+**Nuxt and SSR**: the composables stay idle on the server and generate after
+hydration — `watchEffect` runs during SSR, unlike React's `useEffect`, so this
+guard is what keeps a Nuxt page from trying to `fetch()` WASM while rendering.
+To put a QR code in the server-rendered HTML instead, call the API directly in a
+server route or `useAsyncData`; it is synchronous in Node.
 
 ---
 

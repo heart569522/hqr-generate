@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "rootDir": "vue-src",
+    "outDir": "vue",
+
+    "declaration": true,
+    "emitDeclarationOnly": false,
+
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": ["vue-src/**/*.ts"]
+}

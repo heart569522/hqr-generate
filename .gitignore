@@ -2,6 +2,7 @@
 /target
 /pkg
 /react
+/vue
 
 /node_modules
 /tests/my-app/node_modules
