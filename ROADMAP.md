@@ -44,9 +44,10 @@ docs no longer call it "legacy".
 
 ### Work
 
-- **Remove the legacy 8-bit path** — `QrBitmap`, `rasterize`, `render_png`,
-  `render_svg` in `src/render/` and `src/core/`. Nothing calls them; they exist
-  for a `QrBitmap` API compatibility that has no known consumer.
+- ~~**Remove the legacy 8-bit path.**~~ **Partly done.** `render_svg(&QrBitmap)`
+  is gone — it emitted one `<rect>` per module, 143 KB against 5.2 KB. The rest
+  stays: handing back pixels is a legitimate thing for a QR library to do, and
+  the docs no longer call it "legacy".
 - ~~**Cap the decoder's memory.**~~ **Done.** A manual audit ahead of fuzzing
   found the first real vulnerability: a 1.2 MB PNG declaring 16000x16000 made
   the decoder allocate **976 MB** and burn 2.2 s of CPU, an ~800x amplification.
@@ -65,12 +66,13 @@ docs no longer call it "legacy".
   path kills the WASM instance and **cannot be caught** — no `catch_unwind`, no
   defence in depth. Keeping the dependency current and continuing to fuzz is the
   whole mitigation.
-- **Run the browser tests in CI.** `tests/browser.html` already holds 13 real
-  assertions — including the scanner driven by a canvas-backed `MediaStream` —
-  and they only run when a human opens the page. Playwright headless, one job.
-- **Check the MSRV.** `rust-version = "1.85"` is declared and verified by
-  nothing. One CI job pinned to that toolchain.
-- **Add Windows to the matrix.** Currently ubuntu + macos.
+- ~~**Run the browser tests in CI.**~~ **Done.** 15 assertions run headless on
+  every push, covering WASM over HTTP, canvas round trips, object-URL lifetimes,
+  a live `MediaStream`, and all five Vue composables in a mounted app.
+- ~~**Check the MSRV.**~~ **Done, and it caught a lie on its first run.** The
+  declared 1.85 was impossible: `image` requires 1.88. Now declared honestly and
+  enforced against every feature set.
+- ~~**Add Windows to the matrix.**~~ **Done.**
 - **Decode off the main thread.** The scanner decodes inline, throttled. A worker
   entry would keep a 1080p frame from janking the page. Additive, but it may
   change what `createScanner` accepts — better in 0.7 than after the freeze.
@@ -86,9 +88,8 @@ docs no longer call it "legacy".
 
 If 0.7 is right, this release changes almost no code.
 
-- **Write the compatibility policy** into the README: what counts as public API
-  (`internal/` does not), what semver means here, the MSRV policy, and the
-  supported Node and browser ranges.
+- ~~**Write the compatibility policy**~~ **Done** — in the README, including the
+  two deliberate exceptions and the deliberate omissions.
 - Make the API surface match the policy: anything not meant to be public gets
   `@internal` or moves.
 - Cut the release from a 0.7.x that has been in real use, with the version bump

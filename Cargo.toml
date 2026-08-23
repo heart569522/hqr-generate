@@ -2,7 +2,7 @@
 name = "hqr-generate"
 version = "0.6.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 description = "Fast, scan-reliable black/white QR code generator and decoder (PNG / SVG) powered by Rust + WASM"
 license = "MIT"
 repository = "https://github.com/wirunrom/hqr-generate"

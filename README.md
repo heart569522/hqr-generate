@@ -238,8 +238,9 @@ Two deliberate exceptions, both because refusing them would freeze real bugs:
   improvements change them. What is guaranteed is that the output decodes to
   what you encoded, at the size you asked for.
 
-**Rust:** MSRV is `rust-version` in `Cargo.toml`, checked by CI on every push.
-Raising it is a major. `GenerateError` and `DecodeError` are `#[non_exhaustive]`,
+**Rust:** MSRV is `rust-version` in `Cargo.toml` — currently 1.88, set by the
+`image` crate on the decode path — and CI builds every feature set at exactly
+that toolchain on every push. Raising it is a major. `GenerateError` and `DecodeError` are `#[non_exhaustive]`,
 so new variants are minor — match with a `_` arm.
 
 **Runtimes:** Node per `engines`. Browsers: anything with WebAssembly and ES

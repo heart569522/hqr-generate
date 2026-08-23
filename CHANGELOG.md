@@ -84,8 +84,10 @@
   `tests/browser.html` cover what no Node test can reach — WASM over HTTP,
   canvas round trips, object-URL lifetimes, a real `MediaStream`, Vue in a
   mounted app — and until now ran only when someone opened the page.
-- **CI covers Windows and the declared MSRV.** `rust-version = "1.85"` was a
-  promise nothing verified.
+- **CI covers Windows and the declared MSRV** — which caught a lie on its first
+  run. `rust-version` claimed 1.85, but `image` requires 1.88, so the decode
+  feature could never have built there. Corrected to **1.88** and now enforced
+  against every feature set on every push.
 - `ROADMAP.md` — what has to be true before 1.0, and why.
 - `examples/decode_limits.rs` — the reproduction for the memory issue, kept as a
   runnable description of the threat model.
