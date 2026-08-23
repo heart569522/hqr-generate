@@ -6,7 +6,12 @@
 // decoder is only read off disk if something actually calls `decode`.
 
 import { createRequire } from "node:module";
-import { logoHref, normalizeOpts } from "./internal/options.js";
+import {
+  logoHref,
+  normalizeBarcodeOpts,
+  normalizeOpts,
+  showBarcodeText,
+} from "./internal/options.js";
 
 const require = createRequire(import.meta.url);
 const encoder = require("./pkg/nodejs/hqr_generate.js");
@@ -77,6 +82,41 @@ export function generateModules(text, opts) {
 
 /** Alias of {@link generatePng}. */
 export const generate = generatePng;
+
+/**
+ * Generate a 1D barcode as PNG bytes. The human-readable digits are not drawn;
+ * use {@link generateBarcodeSvg} when the text matters.
+ *
+ * @param {string} text
+ * @param {import('./index.node').BarcodeOptions} [opts]
+ * @returns {Uint8Array}
+ */
+export function generateBarcodePng(text, opts) {
+  return encoder.generate_barcode_png(text, ...normalizeBarcodeOpts(opts));
+}
+
+/**
+ * Generate a 1D barcode as SVG, with the data underneath when the symbology
+ * conventionally shows it.
+ *
+ * @param {string} text
+ * @param {import('./index.node').BarcodeSvgOptions} [opts]
+ * @returns {string}
+ */
+export function generateBarcodeSvg(text, opts) {
+  return encoder.generate_barcode_svg(text, ...normalizeBarcodeOpts(opts), showBarcodeText(opts));
+}
+
+/**
+ * The bar pattern, for drawing the barcode yourself.
+ *
+ * @param {string} text
+ * @param {import('./index.node').BarcodeOptions} [opts]
+ * @returns {import('./index.node').BarcodeModules}
+ */
+export function generateBarcodeModules(text, opts) {
+  return encoder.generate_barcode_modules(text, ...normalizeBarcodeOpts(opts));
+}
 
 /**
  * Read a QR code out of image bytes (PNG/JPEG/WebP) or an `ImageData`-shaped

@@ -4,6 +4,7 @@
       <NuxtLink to="/">client</NuxtLink>
       <NuxtLink to="/ssr">ssr</NuxtLink>
       <NuxtLink to="/scan">scan</NuxtLink>
+      <NuxtLink to="/barcode">barcode</NuxtLink>
       <a href="/api/qr?text=nitro">api</a>
     </nav>
     <NuxtPage />

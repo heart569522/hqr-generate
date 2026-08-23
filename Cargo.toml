@@ -20,6 +20,10 @@ default = ["generate"]
 
 # Encoder: QR module generation + PNG/SVG rendering.
 generate = ["dep:fast_qr", "dep:png"]
+# 1D barcodes (Code128, Code39/93/11, Codabar, EAN-8/13, ITF). Costs almost
+# nothing in the binary — a 1D symbology is lookup tables and bit patterns,
+# against the Reed-Solomon and masking machinery QR needs.
+barcode = ["generate", "dep:barcoders"]
 # Decoder: reads QR out of raw RGBA or encoded image bytes.
 decode = ["dep:image", "dep:rqrr"]
 # JS bindings. Compose with `generate` and/or `decode` to pick what ships.
@@ -33,6 +37,11 @@ js-sys       = { version = "0.3", optional = true }
 # `default-features = false`: we render PNG/SVG ourselves, fast_qr's own
 # converters would pull in image/svg stacks we never call.
 fast_qr = { version = "0.13", default-features = false, optional = true }
+# `default-features = false`: barcoders ships its own SVG/ASCII/image writers,
+# and we already have renderers that outperform them.
+barcoders = { version = "2.0", default-features = false, features = [
+  "std",
+], optional = true }
 # Kept in lockstep with the `png` that `image` depends on so the WASM binary
 # never contains two copies of the PNG codec.
 png = { version = "0.18", optional = true }

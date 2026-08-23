@@ -1,10 +1,11 @@
 # @wirunrom/hqr-generate
 
-Fast, scan-reliable **QR code generator and decoder** — Rust compiled to WebAssembly, with thin JS and React wrappers.
+Fast, scan-reliable **QR codes and 1D barcodes** — generate and decode, Rust compiled to WebAssembly, with thin JS, React and Vue wrappers.
 
 - **85 KB gzipped** to generate. The decoder is a separate module, fetched only if you call `decode`.
 - Returns raw `Uint8Array` (PNG) or `string` (SVG) — no Base64, no Data URLs
 - Same API in the browser, Node and Next.js (client, SSR and route handlers), with **no bundler configuration**
+- **Nine 1D symbologies** too — Code 128/39/93/11, Codabar, EAN-8/13, ITF — for +15 KB
 - Black & white only, on purpose: scan reliability first
 
 ```bash
@@ -59,6 +60,9 @@ export function GET() {
 | `generateMany(texts, opts?)` | `Promise<Uint8Array[]>` | `Uint8Array[]` |
 | `decode(input)` | `Promise<string>` | `string` |
 | `decodeAll(input)` | `Promise<DecodedQr[]>` | `DecodedQr[]` |
+| `generateBarcodePng(text, opts?)` | `Promise<Uint8Array>` | `Uint8Array` |
+| `generateBarcodeSvg(text, opts?)` | `Promise<string>` | `string` |
+| `generateBarcodeModules(text, opts?)` | `Promise<BarcodeModules>` | `BarcodeModules` |
 | `ready(opts?)` | `Promise<void>` | `Promise<void>` |
 
 `generate` is an alias of `generatePng`. `decode` takes a `Uint8Array` of image bytes (PNG/JPEG/WebP) or a canvas `ImageData`, and loads the decoder on first use — `ready({ decoder: true })` warms it early.
@@ -74,6 +78,31 @@ export function GET() {
 | `logoSpace` | `number` | `0` | Percent of the width to blank out for a logo |
 
 Modules always land on whole pixels, so codes never come out blurry. Under `'exact'` the pixels left over from integer scaling widen the quiet zone.
+
+### Barcode options
+
+| Option | Type | Default | |
+| --- | --- | --- | --- |
+| `format` | see below | `'code128'` | Which symbology |
+| `moduleWidth` | `number` | `2` | Pixels per narrow bar |
+| `height` | `number` | `80` | Bar height in px |
+| `quiet` | `number` | `10` | Quiet zone either side, in modules |
+| `text` | `boolean` | per format | Print the data under the bars (SVG only) |
+
+`code128` · `code39` · `code39-checksum` · `code93` · `code11` · `codabar` ·
+`ean13` · `ean8` · `itf`
+
+```js
+await generateBarcodePng(sku, { format: "code128" });
+await generateBarcodeSvg("012345678901", { format: "ean13" }); // check digit computed, digits printed
+```
+
+A barcode has no square to fit into — the width comes from the data, and you
+choose the height. Each symbology **rejects** what it cannot represent rather
+than mangling it: Code 39 has no lowercase, EAN-13 needs 12 or 13 digits.
+
+PNG output carries no human-readable digits, because drawing text needs a font
+and a font would cost more than everything else here. Use SVG when they matter.
 
 ### Errors
 
@@ -115,8 +144,9 @@ const { src, error } = useGenerate(() => props.url, { size: 320 });
 </template>
 ```
 
-Both expose the same five: `useGenerate` (bytes + a managed object URL) ·
-`useGenerateSvg` · `useGenerateModules` (raw grid) · `useDecode` · `useQrScanner`.
+Both expose the same five: `useGenerate` (bytes + a managed object URL) · `useGenerateSvg` ·
+`useGenerateModules` (raw grid) · `useBarcode` · `useBarcodeSvg` · `useDecode` ·
+`useQrScanner`.
 
 React hooks track the individual option fields, so an inline `{ size: 320 }`
 doesn't re-run WASM on every render. Vue composables take plain values, refs or
@@ -208,7 +238,7 @@ for (let y = 0; y < n; y++) {
 
 | | Download | |
 | --- | --- | --- |
-| Encoder | **85 KB gz** | loaded on first `generate*` or `ready()` |
+| Encoder (QR **and** barcodes) | **100 KB gz** | loaded on first `generate*` or `ready()` |
 | Decoder | 280 KB gz | only if you call `decode` |
 
 Generating a typical URL at 320 px takes **~86 µs** and produces a 1.9 KB PNG or a 5.2 KB SVG (Apple Silicon, release + LTO). Run `npm run bench` for the full suite.

@@ -6,9 +6,21 @@
  * harmless if you share code between server and client.
  * ======================================================= */
 
-import type { DecodedQr, GenerateOptions, QrModules, SvgOptions } from "./index";
+import type {
+  BarcodeModules,
+  BarcodeOptions,
+  BarcodeSvgOptions,
+  DecodedQr,
+  GenerateOptions,
+  QrModules,
+  SvgOptions,
+} from "./index";
 
 export type {
+  BarcodeFormat,
+  BarcodeModules,
+  BarcodeOptions,
+  BarcodeSvgOptions,
   DecodedQr,
   GenerateOptions,
   HqrError,
@@ -24,6 +36,15 @@ export function generatePng(text: string, opts?: GenerateOptions): Uint8Array;
 
 /** Generate a QR code as SVG markup (a single `<path>`). */
 export function generateSvg(text: string, opts?: SvgOptions): string;
+
+/** Generate a 1D barcode as PNG bytes. Digits are not drawn — see {@link generateBarcodeSvg}. */
+export function generateBarcodePng(text: string, opts?: BarcodeOptions): Uint8Array;
+
+/** Generate a 1D barcode as SVG, with the data underneath where conventional. */
+export function generateBarcodeSvg(text: string, opts?: BarcodeSvgOptions): string;
+
+/** The bar pattern, for drawing the barcode yourself. */
+export function generateBarcodeModules(text: string, opts?: BarcodeOptions): BarcodeModules;
 
 /**
  * Encode a batch in one crossing of the JS/WASM boundary. Fails on the first

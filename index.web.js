@@ -10,9 +10,17 @@ import init, {
   generate_svg as _svg,
   generate_modules as _modules,
   generate_many_png as _manyPng,
+  generate_barcode_png as _barPng,
+  generate_barcode_svg as _barSvg,
+  generate_barcode_modules as _barModules,
 } from "./pkg/web/hqr_generate.js";
 
-import { logoHref, normalizeOpts } from "./internal/options.js";
+import {
+  logoHref,
+  normalizeBarcodeOpts,
+  normalizeOpts,
+  showBarcodeText,
+} from "./internal/options.js";
 
 let _encoderReady;
 let _decoderReady;
@@ -102,6 +110,52 @@ export async function generateModules(text, opts) {
 
 /** Alias of {@link generatePng}. */
 export const generate = generatePng;
+
+/**
+ * Generate a 1D barcode as PNG bytes.
+ *
+ * The human-readable digits are not drawn — that needs a font, which would cost
+ * more binary than everything else here combined. Use {@link generateBarcodeSvg}
+ * when the text matters.
+ *
+ * @param {string} text
+ * @param {import('./index').BarcodeOptions} [opts]
+ * @returns {Promise<Uint8Array>}
+ */
+export async function generateBarcodePng(text, opts) {
+  const args = normalizeBarcodeOpts(opts);
+  await ensureEncoder();
+  return _barPng(text, ...args);
+}
+
+/**
+ * Generate a 1D barcode as SVG, with the data printed underneath when the
+ * symbology conventionally does so (EAN and UPC do; Code 128 does not).
+ * Override with `text: true | false`.
+ *
+ * @param {string} text
+ * @param {import('./index').BarcodeSvgOptions} [opts]
+ * @returns {Promise<string>}
+ */
+export async function generateBarcodeSvg(text, opts) {
+  const args = normalizeBarcodeOpts(opts);
+  const withText = showBarcodeText(opts);
+  await ensureEncoder();
+  return _barSvg(text, ...args, withText);
+}
+
+/**
+ * The bar pattern, for drawing the barcode yourself.
+ *
+ * @param {string} text
+ * @param {import('./index').BarcodeOptions} [opts]
+ * @returns {Promise<import('./index').BarcodeModules>}
+ */
+export async function generateBarcodeModules(text, opts) {
+  const args = normalizeBarcodeOpts(opts);
+  await ensureEncoder();
+  return _barModules(text, ...args);
+}
 
 /**
  * Read a QR code out of image bytes (PNG/JPEG/WebP) or canvas `ImageData`.

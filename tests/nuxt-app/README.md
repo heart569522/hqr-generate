@@ -31,3 +31,11 @@ headless coverage for that path lives in `tests/browser.html`, which CI runs.
 
 Re-run both install lines after every `npm pack` — npm copies the tarball, it
 does not link it.
+
+And clear Vite's pre-bundling cache when the package's *exports* change, or the
+dev server keeps serving the previous shape and reports a missing export that is
+plainly there on disk:
+
+```bash
+rm -rf .nuxt node_modules/.vite
+```

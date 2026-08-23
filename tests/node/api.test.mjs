@@ -13,6 +13,9 @@ import {
   decodeAll,
   generate,
   generateMany,
+  generateBarcodeModules,
+  generateBarcodePng,
+  generateBarcodeSvg,
   generateModules,
   generatePng,
   generateSvg,
@@ -155,6 +158,9 @@ test("the public surface is exactly what 1.0 promises", () => {
       "decode",
       "decodeAll",
       "generate",
+      "generateBarcodeModules",
+      "generateBarcodePng",
+      "generateBarcodeSvg",
       "generateMany",
       "generateModules",
       "generatePng",
@@ -251,6 +257,67 @@ test("decodeAll returns positions", () => {
     assert.ok(c.x >= 0 && c.x <= 300 && c.y >= 0 && c.y <= 300, `corner out of bounds: ${JSON.stringify(c)}`);
   }
   assert.ok(results[0].version >= 1 && results[0].version <= 40);
+});
+
+test("barcodes: every symbology encodes and lands on whole pixels", () => {
+  const cases = [
+    ["code128", "HELLO-123"],
+    ["code39", "HELLO 123"],
+    ["code39-checksum", "HELLO123"],
+    ["code93", "HELLO123"],
+    ["code11", "123-45"],
+    ["codabar", "A12345B"],
+    ["ean13", "012345678901"],
+    ["ean8", "1234567"],
+    ["itf", "12345678"],
+  ];
+
+  for (const [format, data] of cases) {
+    const m = generateBarcodeModules(data, { format, moduleWidth: 3, height: 60, quiet: 8 });
+    assert.ok(m.bars.length > 0, `${format} produced no bars`);
+    assert.equal(m.origin, 8 * 3, `${format} quiet zone`);
+    assert.equal(m.width, (m.bars.length + 16) * 3, `${format} width`);
+
+    const png = generateBarcodePng(data, { format, moduleWidth: 3, height: 60, quiet: 8 });
+    assert.deepEqual(pngSize(png), { width: m.width, height: 60 }, `${format} png size`);
+  }
+});
+
+test("barcodes: EAN computes the check digit and prints it", () => {
+  // 12 digits in, 13 out — the printed text has to match the bars.
+  const m = generateBarcodeModules("012345678901", { format: "ean13" });
+  assert.equal(m.text, "0123456789012");
+  assert.equal(m.bars.length, 95, "EAN-13 is 95 modules by definition");
+
+  const svg = generateBarcodeSvg("012345678901", { format: "ean13" });
+  assert.ok(svg.includes("<text"), "EAN should print its digits");
+  assert.ok(svg.includes("0123456789012"), "printed text must include the check digit");
+
+  // Passing the full 13 digits keeps them.
+  assert.equal(generateBarcodeModules("0123456789012", { format: "ean13" }).text, "0123456789012");
+});
+
+test("barcodes: text is drawn only where the symbology expects it", () => {
+  assert.ok(!generateBarcodeSvg("ABC", { format: "code128" }).includes("<text"));
+  assert.ok(generateBarcodeSvg("ABC", { format: "code128", text: true }).includes("<text"));
+  assert.ok(!generateBarcodeSvg("1234567", { format: "ean8", text: false }).includes("<text"));
+});
+
+test("barcodes: data a symbology cannot represent is rejected", () => {
+  // Code 39 has no lowercase.
+  assert.throws(
+    () => generateBarcodePng("abc", { format: "code39" }),
+    (e) => e.code === "INVALID_BARCODE_DATA",
+  );
+  // EAN-13 needs 12 or 13 digits.
+  assert.throws(
+    () => generateBarcodePng("123", { format: "ean13" }),
+    (e) => e.code === "INVALID_BARCODE_DATA",
+  );
+  assert.throws(
+    () => generateBarcodePng("HELLO", { format: "nope" }),
+    (e) => e.code === "INVALID_OPTION",
+  );
 });
 
 test("ready() resolves", async () => {

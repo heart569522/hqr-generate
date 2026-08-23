@@ -4,7 +4,7 @@ use crate::error::GenerateError;
 /// Clear pixel range `[start, end)` in a 1-bit PNG scanline.
 /// 1-bit grayscale: bit 7 is the leftmost pixel, 0 is black.
 #[inline]
-fn clear_range_1bit(row: &mut [u8], start: u32, end: u32) {
+pub(crate) fn clear_range_1bit(row: &mut [u8], start: u32, end: u32) {
     if start >= end {
         return;
     }

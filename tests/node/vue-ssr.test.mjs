@@ -12,6 +12,8 @@ import { renderToString } from "vue/server-renderer";
 import { createSSRApp } from "vue";
 
 import {
+  useBarcode,
+  useBarcodeSvg,
   useDecode,
   useGenerate,
   useGenerateModules,
@@ -43,6 +45,8 @@ test("every composable is SSR-safe", async () => {
     useGenerateModules("x");
     useDecode(new Uint8Array([1, 2, 3]));
     useQrScanner({ enabled: true });
+    useBarcode("HELLO", { format: "code128" });
+    useBarcodeSvg("012345678901", { format: "ean13" });
     return {};
   });
 });

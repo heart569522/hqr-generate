@@ -192,6 +192,94 @@ pub fn generate_modules(
     Ok(obj.into())
 }
 
+// ---------- barcode (1D) ----------
+
+#[cfg(feature = "barcode")]
+use crate::core::barcode::{
+    BarcodeOptions, Symbology, generate_barcode_modules as core_barcode_modules,
+};
+
+#[cfg(feature = "barcode")]
+fn barcode_parts(
+    text: &str,
+    symbology: u8,
+    module_width: u32,
+    height: u32,
+    quiet: u32,
+) -> Result<crate::core::barcode::BarcodeModules, JsValue> {
+    let sym = Symbology::from_u8(symbology).ok_or_else(|| {
+        js_error(
+            "INVALID_OPTION",
+            &format!("unknown barcode symbology {symbology}"),
+        )
+    })?;
+    core_barcode_modules(
+        text,
+        sym,
+        BarcodeOptions {
+            module_width,
+            height,
+            quiet,
+        },
+    )
+    .map_err(gen_err)
+}
+
+/// 1D barcode as PNG bytes. `symbology`: see the JS layer's format table.
+#[cfg(feature = "barcode")]
+#[wasm_bindgen]
+pub fn generate_barcode_png(
+    text: &str,
+    symbology: u8,
+    module_width: u32,
+    height: u32,
+    quiet: u32,
+) -> Result<Uint8Array, JsValue> {
+    let m = barcode_parts(text, symbology, module_width, height, quiet)?;
+    let bytes = crate::render::barcode::render_barcode_png(&m).map_err(gen_err)?;
+    Ok(Uint8Array::from(bytes.as_slice()))
+}
+
+/// 1D barcode as SVG. `show_text` prints the data under the bars.
+#[cfg(feature = "barcode")]
+#[wasm_bindgen]
+pub fn generate_barcode_svg(
+    text: &str,
+    symbology: u8,
+    module_width: u32,
+    height: u32,
+    quiet: u32,
+    show_text: bool,
+) -> Result<String, JsValue> {
+    let m = barcode_parts(text, symbology, module_width, height, quiet)?;
+    Ok(crate::render::barcode::render_barcode_svg(&m, show_text))
+}
+
+/// The bar pattern, for callers rendering it themselves.
+/// `{ bars: Uint8Array, moduleWidth, height, quiet, origin, width, text }`.
+#[cfg(feature = "barcode")]
+#[wasm_bindgen]
+pub fn generate_barcode_modules(
+    text: &str,
+    symbology: u8,
+    module_width: u32,
+    height: u32,
+    quiet: u32,
+) -> Result<JsValue, JsValue> {
+    let m = barcode_parts(text, symbology, module_width, height, quiet)?;
+    let bars: Vec<u8> = m.bars.iter().map(|&b| b as u8).collect();
+
+    let obj = js_sys::Object::new();
+    set_prop(&obj, "bars", Uint8Array::from(bars.as_slice()).into());
+    set_prop(&obj, "moduleWidth", num(m.module_width));
+    set_prop(&obj, "height", num(m.height));
+    set_prop(&obj, "quiet", num(m.quiet));
+    set_prop(&obj, "origin", num(m.origin_px()));
+    set_prop(&obj, "width", num(m.img_width()));
+    set_prop(&obj, "text", JsValue::from_str(&m.text));
+    Ok(obj.into())
+}
+
 // ---------- decode ----------
 
 /// Read a QR code out of `Uint8Array` image bytes (PNG/JPEG/WebP) or an

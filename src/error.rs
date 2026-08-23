@@ -33,6 +33,12 @@ pub enum GenerateError {
     },
     /// The QR encoder rejected the input for another reason.
     Encode(String),
+    /// The data does not fit the rules of the chosen 1D symbology — wrong
+    /// length, a character the format cannot represent, a bad check digit.
+    Barcode {
+        symbology: &'static str,
+        reason: String,
+    },
     /// PNG serialization failed.
     Png(String),
 }
@@ -47,6 +53,7 @@ impl GenerateError {
             Self::InvalidMargin { .. } => "INVALID_MARGIN",
             Self::LogoSpaceTooLarge { .. } => "LOGO_SPACE_TOO_LARGE",
             Self::Encode(_) => "ENCODE_FAILED",
+            Self::Barcode { .. } => "INVALID_BARCODE_DATA",
             Self::Png(_) => "PNG_FAILED",
         }
     }
@@ -72,6 +79,9 @@ impl fmt::Display for GenerateError {
                 "logoSpace of {requested_percent}% is more than error correction can recover here (max {max_percent}%); raise ecc or shrink the logo"
             ),
             Self::Encode(msg) => write!(f, "qr encoding failed: {msg}"),
+            Self::Barcode { symbology, reason } => {
+                write!(f, "{symbology} cannot encode this data: {reason}")
+            }
             Self::Png(msg) => write!(f, "png encoding failed: {msg}"),
         }
     }

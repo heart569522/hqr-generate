@@ -38,6 +38,36 @@ pub use render::png::{render_png, render_png_modules};
 #[cfg(feature = "generate")]
 pub use render::svg::{render_svg_modules, render_svg_modules_with_logo};
 
+#[cfg(feature = "barcode")]
+pub use core::barcode::{BarcodeModules, BarcodeOptions, Symbology, generate_barcode_modules};
+#[cfg(feature = "barcode")]
+pub use render::barcode::{render_barcode_png, render_barcode_svg};
+
+/// Encode `text` as a 1D barcode, as a 1-bit grayscale PNG.
+#[cfg(feature = "barcode")]
+pub fn barcode_png(
+    text: &str,
+    symbology: Symbology,
+    opts: BarcodeOptions,
+) -> Result<Vec<u8>, GenerateError> {
+    render_barcode_png(&generate_barcode_modules(text, symbology, opts)?)
+}
+
+/// Encode `text` as a 1D barcode, as SVG. `show_text` prints the data below
+/// the bars, which retail symbologies conventionally do.
+#[cfg(feature = "barcode")]
+pub fn barcode_svg(
+    text: &str,
+    symbology: Symbology,
+    opts: BarcodeOptions,
+    show_text: bool,
+) -> Result<String, GenerateError> {
+    Ok(render_barcode_svg(
+        &generate_barcode_modules(text, symbology, opts)?,
+        show_text,
+    ))
+}
+
 #[cfg(feature = "decode")]
 pub use core::decode::{Corner, QrResult, decode, decode_all};
 #[cfg(feature = "decode")]

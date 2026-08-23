@@ -72,6 +72,28 @@ appears in 23 files for npm alone and 39 once the crate and repo are included.
 
 ### Added
 
+- **1D barcodes.** Nine symbologies — Code 128, Code 39 (with or without check
+  character), Code 93, Code 11, Codabar, EAN-8, EAN-13 and ITF — as PNG, SVG or
+  the raw bar pattern, through `generateBarcodePng` / `generateBarcodeSvg` /
+  `generateBarcodeModules`, plus `useBarcode` and `useBarcodeSvg` in both the
+  React and Vue layers.
+
+  The encoder grows from 85 KB to 100 KB gzipped for all nine, because a 1D
+  symbology is lookup tables and bit patterns next to the Reed-Solomon and
+  masking machinery QR needs. It rides the same renderers: whole pixels per
+  module, runs merged before they reach the encoder.
+
+  Each format **rejects** data it cannot represent rather than mangling it —
+  Code 39 has no lowercase, EAN-13 needs 12 or 13 digits — with a new
+  `INVALID_BARCODE_DATA` code naming the symbology. EAN computes its check digit
+  when given 12 digits, and the printed text includes it, so the digits under
+  the bars always agree with the bars.
+
+  SVG prints the human-readable data where the symbology conventionally shows
+  it (EAN and UPC do, Code 128 does not); PNG does not, because drawing text
+  means shipping a font, which would cost more than everything else in the
+  binary.
+
 - **Vue composables** — `@wirunrom/hqr-generate/vue`, the same five the React
   layer exposes. Values, refs and getters are all accepted, and everything is
   released on scope disposal.

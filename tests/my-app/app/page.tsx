@@ -120,6 +120,7 @@ export default function Home() {
           <Link href="/ssr">/ssr</Link>
           <Link href="/api/qr?text=hello">/api/qr</Link>
           <Link href="/scan">/scan</Link>
+          <Link href="/barcode">/barcode</Link>
         </nav>
       </header>
 

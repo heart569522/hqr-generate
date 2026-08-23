@@ -34,6 +34,11 @@
         generateSvg,
         ready,
       } from "../index.web.js";
+      import {
+        generateBarcodeModules,
+        generateBarcodePng,
+        generateBarcodeSvg,
+      } from "../index.web.js";
       import { createScanner } from "../scanner.js";
       import { promptpay, wifi } from "../payload.js";
 
@@ -391,6 +396,93 @@
         assert(stream.getTracks().every((t) => t.readyState === "ended"), "camera not released");
       });
 
+      await check("barcodes render across every symbology", async () => {
+        const cases = [
+          ["code128", "HELLO-123"],
+          ["code39", "HELLO 123"],
+          ["code93", "HELLO123"],
+          ["codabar", "A12345B"],
+          ["ean13", "012345678901"],
+          ["ean8", "1234567"],
+          ["itf", "12345678"],
+        ];
+
+        for (const [format, data] of cases) {
+          const m = await generateBarcodeModules(data, { format, moduleWidth: 2, height: 60 });
+          assert(m.bars.length > 0, format + " produced no bars");
+
+          const svg = await generateBarcodeSvg(data, { format, moduleWidth: 2, height: 60 });
+          const parsed = new DOMParser().parseFromString(svg, "image/svg+xml");
+          assert(!parsed.querySelector("parsererror"), format + ": browser rejected the SVG");
+
+          // The PNG has to be something the browser will actually decode.
+          const bytes = await generateBarcodePng(data, { format, moduleWidth: 2, height: 60 });
+          const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+          const img = new Image();
+          await new Promise((res, rej) => {
+            img.onload = res;
+            img.onerror = () => rej(new Error(format + ": browser could not decode the PNG"));
+            img.src = url;
+          });
+          assert(img.naturalWidth === m.width, format + " width mismatch");
+          assert(img.naturalHeight === 60, format + " height mismatch");
+          URL.revokeObjectURL(url);
+        }
+
+        const ean = await generateBarcodeSvg("012345678901", { format: "ean13" });
+        assert(ean.includes("0123456789012"), "EAN should print its computed check digit");
+        document.getElementById("preview").insertAdjacentHTML("beforeend", ean);
+      });
+
+      await check("vue barcode composables work in a real app", async () => {
+        const { createApp, defineComponent, h, ref, nextTick } = await import("vue");
+        const { useBarcode, useBarcodeSvg } = await import("../vue/index.js");
+
+        const host = document.createElement("div");
+        document.body.append(host);
+
+        let api;
+        const App = defineComponent({
+          setup() {
+            const sku = ref("SKU-0001");
+            const png = useBarcode(sku, { format: "code128", height: 50 });
+            const svg = useBarcodeSvg(sku, { format: "code128", text: true });
+            api = { sku, png, svg };
+            return () => h("img", { src: png.src.value ?? undefined });
+          },
+        });
+        const app = createApp(App);
+        app.mount(host);
+
+        const settle = async (probe) => {
+          for (let i = 0; i < 60; i++) {
+            await new Promise((r) => setTimeout(r, 50));
+            await nextTick();
+            if (probe()) return true;
+          }
+          return false;
+        };
+
+        assert(await settle(() => api.png.src.value), "useBarcode produced no src");
+        assert(await settle(() => api.svg.svg.value), "useBarcodeSvg produced no markup");
+        assert(api.svg.svg.value.includes("SKU-0001"), "text: true should print the data");
+
+        const before = api.png.src.value;
+        api.sku.value = "SKU-9999";
+        assert(await settle(() => api.png.src.value !== before), "changing the ref did not re-run");
+
+        const leaked = api.png.src.value;
+        app.unmount();
+        host.remove();
+        let revoked = false;
+        try {
+          revoked = !(await fetch(leaked)).ok;
+        } catch {
+          revoked = true;
+        }
+        assert(revoked, "object URL should be revoked on unmount");
+      });
+
       await check("errors carry a code", async () => {
         const cases = [
           [() => generatePng(""), "EMPTY_TEXT"],
@@ -399,6 +491,8 @@
           [() => decode(new Uint8Array([1, 2, 3])), "INVALID_IMAGE"],
           [() => generatePng("x", { ecc: "L", logoSpace: 30 }), "LOGO_SPACE_TOO_LARGE"],
           [() => generateSvg("x", { logo: "data:," }), "INVALID_OPTION"],
+          [() => generateBarcodePng("abc", { format: "code39" }), "INVALID_BARCODE_DATA"],
+          [() => generateBarcodePng("x", { format: "nope" }), "INVALID_OPTION"],
         ];
         for (const [fn, code] of cases) {
           let thrown;

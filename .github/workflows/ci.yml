@@ -35,7 +35,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --features decode --all-targets -- -D warnings
+        run: cargo clippy --features decode,barcode --all-targets -- -D warnings
 
       - name: Test
         run: cargo test --features decode
@@ -48,8 +48,10 @@ jobs:
       - name: Feature matrix
         run: |
           cargo check --all-targets --no-default-features --features generate
+          cargo check --all-targets --no-default-features --features barcode
           cargo check --all-targets --no-default-features --features decode
           cargo check --all-targets --no-default-features --features generate,decode
+          cargo check --all-targets --no-default-features --features barcode,decode
 
   msrv:
     name: MSRV
@@ -72,8 +74,10 @@ jobs:
       - name: Build every feature set at the MSRV
         run: |
           cargo check --all-targets --no-default-features --features generate
+          cargo check --all-targets --no-default-features --features barcode
           cargo check --all-targets --no-default-features --features decode
           cargo check --all-targets --no-default-features --features generate,decode
+          cargo check --all-targets --no-default-features --features barcode,decode
 
   wasm:
     name: WASM + npm package
@@ -97,7 +101,7 @@ jobs:
 
       - name: Clippy (wasm bindings)
         run: |
-          cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,generate -- -D warnings
+          cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,generate,barcode -- -D warnings
           cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,decode -- -D warnings
 
       - run: npm ci

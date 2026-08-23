@@ -29,6 +29,8 @@ const OUTPUTS = {
 const STRIP = ["README.md", "LICENSE", ".gitignore"];
 
 // What wasm-pack's --target nodejs glue emits to locate its binary.
+const INLINE_MARKER = "// Binary inlined at build time";
+
 const DISK_LOAD =
   "const wasmPath = `${__dirname}/hqr_generate_bg.wasm`;\n" +
   "const wasmBytes = require('fs').readFileSync(wasmPath);";
@@ -56,6 +58,12 @@ async function inlineWasm(dir) {
   const wasmPath = join(dir, "hqr_generate_bg.wasm");
 
   const source = await readFile(jsPath, "utf8");
+
+  // Idempotent: rebuilding one output directory and re-running this script must
+  // not fail on the directories that were already inlined.
+  if (!existsSync(wasmPath) && source.includes(INLINE_MARKER)) {
+    return { base64Bytes: 0, alreadyDone: true };
+  }
   const occurrences = source.split(DISK_LOAD).length - 1;
   if (occurrences !== 1) {
     throw new Error(
@@ -67,7 +75,7 @@ async function inlineWasm(dir) {
   const base64 = (await readFile(wasmPath)).toString("base64");
   const inlined = source.replace(
     DISK_LOAD,
-    "// Binary inlined at build time so no bundler can break the file path.\n" +
+    `${INLINE_MARKER} so no bundler can break the file path.\n` +
       `const wasmBytes = Buffer.from("${base64}", "base64");`,
   );
 
@@ -101,8 +109,10 @@ for (const entry of dirs) {
 
   let note = "";
   if (config.inline) {
-    const { base64Bytes } = await inlineWasm(dir);
-    note = `, wasm inlined (${(base64Bytes / 1024).toFixed(0)} KB base64)`;
+    const { base64Bytes, alreadyDone } = await inlineWasm(dir);
+    note = alreadyDone
+      ? ", wasm already inlined"
+      : `, wasm inlined (${(base64Bytes / 1024).toFixed(0)} KB base64)`;
   }
 
   console.log(`  pkg/${entry.name}: type=${config.type}${note}`);
