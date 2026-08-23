@@ -4,7 +4,7 @@
 // `import` before `node`, so Node could resolve to the browser build and die
 // trying to `fetch()` its own .wasm. If this route returns an image, the
 // resolution order is right.
-import { qrPng, qrSvg } from "barqr";
+import { qrPng, qrSvg } from "barqrcode";
 
 export const dynamic = "force-dynamic";
 

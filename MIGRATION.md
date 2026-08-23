@@ -7,19 +7,19 @@
 
 ## Migrating 0.6.x → 1.0.0
 
-**The package moved to `barqr`.** `@wirunrom/hqr-generate` is deprecated
+**The package moved to `barqrcode`.** `@wirunrom/hqr-generate` is deprecated
 and will not get further releases.
 
 ```bash
 npm uninstall @wirunrom/hqr-generate
-npm i barqr
+npm i barqrcode
 ```
 
 Then update your imports. Nothing else about them changes:
 
 ```diff
 - import { qrPng } from "@wirunrom/hqr-generate";
-+ import { qrPng } from "barqr";
++ import { qrPng } from "barqrcode";
 ```
 
 Every subpath keeps its name: `/react`, `/vue`, `/payload`, `/scanner`,
@@ -105,7 +105,7 @@ Hooks for all of it: `useBarcode`, `useBarcodeSvg`, `useBarcodeModules` and
 ### 4. Vue and Nuxt are supported
 
 New, so nothing to migrate — but if you had written your own composables around
-the core API, `barqr/vue` now ships five of them, SSR-safe for Nuxt.
+the core API, `barqrcode/vue` now ships five of them, SSR-safe for Nuxt.
 
 ### 5. Rust crate
 

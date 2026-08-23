@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>barqr — published package smoke test</title>
+    <title>barqrcode — published package smoke test</title>
     <style>
       body { font: 14px/1.6 ui-monospace, monospace; margin: 2rem; max-width: 40rem; }
       input, button { font: inherit; padding: 0.3rem 0.5rem; }
@@ -10,9 +10,9 @@
     </style>
   </head>
   <body>
-    <h3>barqr — the published package</h3>
+    <h3>barqrcode — the published package</h3>
     <p>
-      Loads <code>barqr</code> from a CDN, so it only works once the package is
+      Loads <code>barqrcode</code> from a CDN, so it only works once the package is
       released. For the local build open
       <a href="./browser.html">browser.html</a> over HTTP.
     </p>
@@ -33,7 +33,7 @@
     <script type="module">
       // `@1` rather than a pinned patch: this page should keep working across
       // the 1.x line without being edited on every release.
-      import { qrSvg, barcodeSvg } from "https://esm.sh/barqr@1";
+      import { qrSvg, barcodeSvg } from "https://esm.sh/barqrcode@1";
 
       const btn = document.getElementById("btn");
       const input = document.getElementById("text");

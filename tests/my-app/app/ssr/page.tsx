@@ -1,7 +1,7 @@
 // Server component: the QR is rendered during SSR and arrives in the HTML.
 // No client JS, no WASM in the browser, no layout shift.
-import { decode, qrModules, qrPng, qrSvg } from "barqr";
-import { promptpay } from "barqr/payload";
+import { decode, qrModules, qrPng, qrSvg } from "barqrcode";
+import { promptpay } from "barqrcode/payload";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";

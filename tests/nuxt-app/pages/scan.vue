@@ -5,8 +5,8 @@
 // whole pump/decode/dedupe path runs on a machine without a camera — and in
 // headless CI.
 import { ref, watch } from "vue";
-import { qrModules } from "barqr";
-import { useScanner } from "barqr/vue";
+import { qrModules } from "barqrcode";
+import { useScanner } from "barqrcode/vue";
 
 const SAMPLES = ["https://example.com/scanned", "สวัสดีครับ ทดสอบภาษาไทย"];
 

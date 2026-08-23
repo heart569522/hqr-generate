@@ -22,14 +22,16 @@ import { join, relative } from "node:path";
 
 const ROOT = new URL("..", import.meta.url).pathname;
 
-const OLD_NPM = "barqr";
+const OLD_NPM = "barqrcode";
 const OLD_CRATE_SNAKE = "barqr";
 const OLD_CRATE_KEBAB = "barqr";
 const OLD_REPO = "wirunrom/barqr";
 
-// These describe the rename itself, so the old name in them is the point.
-// They get `__NEW_PKG__` filled in and nothing else touched.
-const PLACEHOLDER_ONLY = new Set(["MIGRATION.md", ".github/release-notes/v1.0.0.md"]);
+// Files where the old name is the whole point, so only `__NEW_PKG__` gets
+// filled in. MIGRATION.md and the v1.0.0 note used to sit here, back when
+// OLD_NPM was the name they exist to migrate away from. It no longer is, so
+// they rename like any other file.
+const PLACEHOLDER_ONLY = new Set([]);
 
 const SKIP_DIRS = new Set([
   "node_modules", ".git", ".claude", "target", "pkg", "react", "vue", ".next",
@@ -42,6 +44,30 @@ const SKIP_FILES = new Set(["package-lock.json", "Cargo.lock", "rename.mjs"]);
 /// step with the releases on GitHub.
 const isPublishedNote = (rel) => /^\.github\/release-notes\/v0\./.test(rel);
 const TEXT = /\.(md|json|js|mjs|ts|tsx|vue|rs|toml|html|yml|yaml)$/;
+
+/// The three names overlap as strings, so a plain substring replace renaming
+/// one of them quietly corrupts the other two.
+///
+/// Rust and Cargo files name the crate or the repository and never the npm
+/// package, so the npm rename skips them outright. Everywhere else the crate
+/// still turns up in wasm filenames (`barqr_bg.wasm`) and doc examples
+/// (`barqr::png`), and the repo in GitHub links — hold those aside, rename, put
+/// them back. `--crate` and `--repo` then rename them deliberately, if asked.
+const RUST = /\.(rs|toml)$/;
+const CRATE_OR_REPO = new RegExp(
+  `${OLD_REPO}|${OLD_CRATE_SNAKE}_|${OLD_CRATE_SNAKE}::`,
+  "g",
+);
+
+const holdAside = (text, pattern, rename) => {
+  const held = [];
+  const swapped = rename(
+    text.replace(pattern, (m) => `\u0000${held.push(m) - 1}\u0000`),
+  );
+  return swapped.replace(/\u0000(\d+)\u0000/g, (_, i) => held[i]);
+};
+
+const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const args = process.argv.slice(2);
 const arg = (name) => {
@@ -88,12 +114,21 @@ for await (const file of walk(ROOT)) {
   after = after.replaceAll("__NEW_PKG__", npmName);
 
   if (!PLACEHOLDER_ONLY.has(rel)) {
-    after = after.replaceAll(OLD_NPM, npmName);
+    // Rust and Cargo files name the crate, never the npm package.
+    if (!RUST.test(rel)) {
+      after = holdAside(after, CRATE_OR_REPO, (t) =>
+        t.replaceAll(OLD_NPM, npmName));
+    }
     if (repo) after = after.replaceAll(OLD_REPO, repo);
     if (crateName) {
-      after = after.replaceAll(OLD_CRATE_SNAKE, crateName.replaceAll("-", "_"));
-      // Kebab last: the npm and repo names contain it, and are already handled.
-      after = after.replaceAll(OLD_CRATE_KEBAB, crateName);
+      // The npm name starts with the crate name, so hold it aside or this
+      // turns `barqrcode` into `<newcrate>code`.
+      const npmNow = new RegExp(escape(npmName), "g");
+      after = holdAside(after, npmNow, (t) =>
+        t
+          .replaceAll(OLD_CRATE_SNAKE, crateName.replaceAll("-", "_"))
+          // Kebab last: the repo name contains it, and is already handled.
+          .replaceAll(OLD_CRATE_KEBAB, crateName));
     }
   }
 

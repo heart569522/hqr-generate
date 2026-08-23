@@ -6,7 +6,7 @@
 // nothing useful.
 //
 // Pure strings, no WASM, no dependency on the rest of the package: import from
-// "barqr/payload" and feed the result to `generate*`.
+// "barqrcode/payload" and feed the result to `generate*`.
 
 function payloadError(message) {
   const err = new Error(message);

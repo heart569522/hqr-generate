@@ -13,8 +13,9 @@ Everything below was decided or built for this release. The reasoning lives in
 
 **API, settled and frozen at 1.0**
 
-- Renamed to `barqr`, package, crate and repository — the old name described
-  neither half of what this does.
+- Renamed — the old name described neither half of what this does. npm rejected
+  the bare `barqr` as too similar to an existing package, so the published name
+  is `barqrcode`; the crate and the repository stay `barqr`.
 - Every function names its symbol family: `qrPng`/`qrSvg`/`qrModules`/`qrMany`
   against `barcodePng`/`barcodeSvg`/`barcodeModules`. Hooks and composables line
   up one for one in React and Vue.
@@ -46,7 +47,7 @@ Everything below was decided or built for this release. The reasoning lives in
 
 ## Before tagging
 
-The three that needed a person are done. Two mechanical steps remain.
+The three that needed a person are done, and the name is claimed. One step left.
 
 - [x] **PromptPay against a real banking app.** Confirmed by the maintainer.
 - [x] **The scanner on real phone cameras**, iOS and Android. Confirmed by the
@@ -55,15 +56,15 @@ The three that needed a person are done. Two mechanical steps remain.
       autofocus or a dim room — so this one could only ever be checked by hand.
 - [x] **The maintainer's payment integration running on this API.**
 
-And two mechanical steps, in this order:
+And the mechanical ones:
 
-- [ ] **Claim `barqr` on npm and point its Trusted Publisher at
-      `wirunrom/barqr` + `publish.yml`.** The publisher is currently bound to
-      the old repository name, so publishing fails until it is repointed — and
-      it cannot be configured until the package exists.
-- [ ] **`npm version 1.0.0`, then tag.** Release notes are already written at
-      `.github/release-notes/v1.0.0.md`; they carry a `barqr` placeholder
-      that `scripts/rename.mjs` fills.
+- [x] **`barqrcode` claimed on npm, Trusted Publisher pointed at
+      `wirunrom/barqr` + `publish.yml`.** The publisher cannot be configured
+      until the package exists, so a `0.0.1` placeholder was published to claim
+      the name, then deprecated.
+- [ ] **Tag `v1.0.0`.** `package.json` is already at 1.0.0 and the notes are
+      written at `.github/release-notes/v1.0.0.md`. Pushing the tag is what
+      publishes; nothing before it touches the registry.
 
 ---
 

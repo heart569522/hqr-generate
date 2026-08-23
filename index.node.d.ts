@@ -1,5 +1,5 @@
 /* =========================================================
- * barqr — Node / SSR types
+ * barqrcode — Node / SSR types
  *
  * Same API as the browser entry, but synchronous: the Node build loads WASM at
  * import time, so nothing here returns a Promise. `await` on these values is

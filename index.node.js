@@ -14,18 +14,18 @@ import {
 } from "./internal/options.js";
 
 const require = createRequire(import.meta.url);
-const encoder = require("./pkg/nodejs/barqr.js");
+const encoder = require("./pkg/nodejs/barqrcode.js");
 
 let _decoder;
 function decoder() {
-  return (_decoder ??= require("./pkg/nodejs-decode/barqr.js"));
+  return (_decoder ??= require("./pkg/nodejs-decode/barqrcode.js"));
 }
 
 // The any-symbology decoder is roughly twice the size of the QR-only one, so it
 // is a separate module read off disk only when something asks for it.
 let _anyDecoder;
 function anyDecoder() {
-  return (_anyDecoder ??= require("./pkg/nodejs-decode-any/barqr.js"));
+  return (_anyDecoder ??= require("./pkg/nodejs-decode-any/barqrcode.js"));
 }
 
 /**

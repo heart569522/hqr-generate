@@ -12,9 +12,9 @@ import {
   qrPng,
   qrSvg,
   ready,
-} from "barqr";
-import { promptpay, wifi } from "barqr/payload";
-import { useQr, useQrModules, useQrSvg } from "barqr/react";
+} from "barqrcode";
+import { promptpay, wifi } from "barqrcode/payload";
+import { useQr, useQrModules, useQrSvg } from "barqrcode/react";
 import Link from "next/link";
 
 const URL_PAYLOAD = "https://example.com/products/12345?utm_source=qr";
@@ -115,7 +115,7 @@ export default function Home() {
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 p-8 font-mono text-sm">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-xl font-semibold">barqr — Next.js client checks</h1>
+        <h1 className="text-xl font-semibold">barqrcode — Next.js client checks</h1>
         <nav className="flex gap-3 underline">
           <Link href="/ssr">/ssr</Link>
           <Link href="/api/qr?text=hello">/api/qr</Link>

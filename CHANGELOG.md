@@ -23,13 +23,15 @@ alias is gone: with two symbol families it no longer answers "generate what?".
 
 ### Renamed — package
 
-The package moves to a new name at 1.0. `barqr` is deprecated
-and 0.6.0 is its last release; see [MIGRATION.md](./MIGRATION.md). For most code
+The package moves to a new name at 1.0. `@wirunrom/hqr-generate` is
+deprecated and 0.6.0 is its last release; see [MIGRATION.md](./MIGRATION.md). For most code
 the whole change is the import path — every function, option and hook keeps its
 name.
 
-`scripts/rename.mjs` performs the rename across the repo, since the old name
-appears in 23 files for npm alone and 39 once the crate and repo are included.
+`scripts/rename.mjs` performs the rename across the repo. The npm package, the
+crate and the repository share a prefix but not a spelling, so it renames each
+independently — a substring replace over the tree silently rewrites GitHub
+links and `barqr_bg.wasm` along with the import paths.
 
 
 ### Security
@@ -136,7 +138,7 @@ appears in 23 files for npm alone and 39 once the crate and repo are included.
   means shipping a font, which would cost more than everything else in the
   binary.
 
-- **Vue composables** — `barqr/vue`, the same five the React
+- **Vue composables** — `barqrcode/vue`, the same five the React
   layer exposes. Values, refs and getters are all accepted, and everything is
   released on scope disposal.
 
@@ -218,11 +220,11 @@ the image you get back.
   The request is rejected with `LOGO_SPACE_TOO_LARGE` if it would spend more of
   the error-correction budget than the level can spare, or if the square would
   reach the finder patterns.
-- **Camera scanning** — `barqr/scanner` (`createScanner`,
+- **Camera scanning** — `barqrcode/scanner` (`createScanner`,
   `listCameras`) and the `useScanner` React hook. Frames come from
   `requestVideoFrameCallback` where available, downscaled to 640 px, throttled,
   and de-duplicated. Plain JS, so it adds nothing to the WASM binaries.
-- **Payload builders** — `barqr/payload`: `wifi`, `mecard`,
+- **Payload builders** — `barqrcode/payload`: `wifi`, `mecard`,
   `vcard`, `mailto`, `sms`, `tel`, `geo`, `otpauth`, and `promptpay` (Thai
   EMVCo merchant-presented QR, with a CRC-16/CCITT-FALSE checksum). Each escapes
   its own separators — the failure mode otherwise is a code that scans fine and
@@ -239,7 +241,7 @@ the image you get back.
 - `ready({ decoder })` to preload WASM before the first render.
 - camelCase names (`qrPng`, `qrSvg`, `qrModules`); the 0.5
   snake_case names remain as aliases.
-- `barqr/node` subpath export.
+- `barqrcode/node` subpath export.
 - Rust convenience helpers `barqr::png()` / `svg()`, and `GenerateOptions`
   replacing the positional `(text, size, margin, ecc)` signature. Rust also gains
   `decode_all`, `Corner`, and `render_svg_modules_with_logo`.

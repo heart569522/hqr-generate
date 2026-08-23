@@ -3,7 +3,7 @@
 // Nitro bundles this file, which is exactly where the `__dirname` lookup in
 // wasm-pack's glue used to fail. If this returns an image, the binary really is
 // travelling inside the JS.
-import { qrPng, qrSvg } from "barqr";
+import { qrPng, qrSvg } from "barqrcode";
 
 export default defineEventHandler((event) => {
   const query = getQuery(event);

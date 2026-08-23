@@ -8,8 +8,8 @@
 // canvas-backed MediaStream — use it when the machine has no camera.
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { useScanner } from "barqr/react";
-import { promptpay } from "barqr/payload";
+import { useScanner } from "barqrcode/react";
+import { promptpay } from "barqrcode/payload";
 import { installFakeCamera, type FakeCamera } from "./fake-camera";
 
 const SAMPLES = [

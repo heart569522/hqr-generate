@@ -1,4 +1,4 @@
-# barqr
+# barqrcode
 
 Fast, scan-reliable **QR codes and 1D barcodes** — generate and decode, Rust compiled to WebAssembly, with thin JS, React and Vue wrappers.
 
@@ -9,19 +9,22 @@ Fast, scan-reliable **QR codes and 1D barcodes** — generate and decode, Rust c
 - Black & white only, on purpose: scan reliability first
 
 ```bash
-npm i barqr
+npm i barqrcode
 ```
 
-Node 20.19+. Coming from an earlier release, or from the package this one
-continues? [MIGRATION.md](./MIGRATION.md) has the whole list — for most code it
-is the import path and nothing else.
+Node 20.19+. The repository and the Rust crate are named `barqr`; npm would not
+take that name, so the published package is `barqrcode`. Same project.
+
+Coming from an earlier release, or from the package this one continues?
+[MIGRATION.md](./MIGRATION.md) has the whole list — for most code it is the
+import path and nothing else.
 
 ---
 
 ## Quick start
 
 ```js
-import { qrPng, qrSvg, barcodePng, decode } from "barqr";
+import { qrPng, qrSvg, barcodePng, decode } from "barqrcode";
 
 const png = await qrPng("https://example.com", { size: 320 });   // Uint8Array, exactly 320×320
 const svg = await qrSvg("https://example.com", { size: 320 });   // '<svg …><path …/></svg>'
@@ -43,7 +46,7 @@ In Node the same imports are **synchronous** — the `exports` map picks a build
 
 ```ts
 // app/api/qr/route.ts — note the absence of await
-import { qrPng } from "barqr";
+import { qrPng } from "barqrcode";
 
 export function GET() {
   return new Response(qrPng("https://example.com") as BodyInit, {
@@ -129,7 +132,7 @@ try {
 ## React & Vue
 
 ```tsx
-import { useQr } from "barqr/react";
+import { useQr } from "barqrcode/react";
 
 function Ticket({ url }: { url: string }) {
   const { src, error } = useQr(url, { size: 320 });
@@ -140,7 +143,7 @@ function Ticket({ url }: { url: string }) {
 
 ```vue
 <script setup>
-import { useQr } from "barqr/vue";
+import { useQr } from "barqrcode/vue";
 const props = defineProps(["url"]);
 const { src, error } = useQr(() => props.url, { size: 320 });
 </script>
@@ -194,7 +197,7 @@ ctx.drawImage(img, logo.x, logo.y, logo.size, logo.size);
 <summary><b>Camera scanning</b></summary>
 
 ```js
-import { createScanner } from "barqr/scanner";
+import { createScanner } from "barqrcode/scanner";
 
 const scanner = await createScanner({
   video: document.querySelector("video"),
@@ -220,7 +223,7 @@ In React and Vue, `useScanner()` returns a ref to attach to a `<video>`, takes t
 <summary><b>Payload builders (Wi-Fi, contacts, PromptPay…)</b></summary>
 
 ```js
-import { promptpay, wifi } from "barqr/payload";
+import { promptpay, wifi } from "barqrcode/payload";
 
 await qrPng(wifi({ ssid: "Cafe Wi-Fi", password: "hunter2" }));
 await qrPng(promptpay({ target: "081-234-5678", amount: 250 }), { ecc: "M" });

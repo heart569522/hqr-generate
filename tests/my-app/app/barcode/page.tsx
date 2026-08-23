@@ -2,7 +2,7 @@
 
 // Barcodes through the React hooks, in Next.js.
 import { useState } from "react";
-import { useBarcode, useBarcodeSvg } from "barqr/react";
+import { useBarcode, useBarcodeSvg } from "barqrcode/react";
 import Link from "next/link";
 
 const FORMATS = [

@@ -56,7 +56,7 @@ const DISK_LOAD =
  * an asset, which bundlers already handle.
  */
 async function inlineWasm(dir) {
-  const jsPath = join(dir, "barqr.js");
+  const jsPath = join(dir, "barqrcode.js");
   const wasmPath = join(dir, "barqr_bg.wasm");
 
   const source = await readFile(jsPath, "utf8");

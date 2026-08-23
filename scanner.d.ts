@@ -1,5 +1,5 @@
 /* =========================================================
- * barqr/scanner
+ * barqrcode/scanner
  *
  * Live camera scanning, framework-agnostic. Browser only.
  * ======================================================= */
