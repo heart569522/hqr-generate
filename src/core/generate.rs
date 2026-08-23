@@ -51,7 +51,7 @@ fn logo_side(n: u32, percent: u8, ecc: Ecc) -> Result<u32, GenerateError> {
     // `n` is always odd, so an odd side leaves an equal gap on both sides and
     // the square sits exactly on the centre module.
     let mut side = (n * u32::from(percent)).div_ceil(100).max(1);
-    if side % 2 == 0 {
+    if side.is_multiple_of(2) {
         side -= 1;
     }
     Ok(side.max(1))
