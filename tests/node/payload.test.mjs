@@ -17,7 +17,7 @@ import {
   vcard,
   wifi,
 } from "../../payload.js";
-import { decode, generatePng } from "../../index.node.js";
+import { decode, qrPng } from "../../index.node.js";
 
 /** Minimal EMVCo tag-length-value reader, so assertions describe structure. */
 function parseTlv(payload) {
@@ -102,7 +102,7 @@ test("promptpay: bad input is rejected, not silently mangled", () => {
 
 test("promptpay survives a real encode/decode round trip", () => {
   const payload = promptpay({ target: "0812345678", amount: 250 });
-  assert.equal(decode(generatePng(payload, { ecc: "M" })), payload);
+  assert.equal(decode(qrPng(payload, { ecc: "M" })), payload);
 });
 
 test("wifi escapes the separators that would split the payload", () => {

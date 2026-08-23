@@ -1,10 +1,10 @@
 /* =========================================================
- * @wirunrom/hqr-generate/scanner
+ * barqr/scanner
  *
  * Live camera scanning, framework-agnostic. Browser only.
  * ======================================================= */
 
-import type { DecodedQr } from "./index";
+import type { DecodedSymbol } from "./index";
 
 export interface CameraInfo {
   deviceId: string;
@@ -14,13 +14,30 @@ export interface CameraInfo {
 /** Video input devices. Labels are only populated after permission is granted. */
 export function listCameras(): Promise<CameraInfo[]>;
 
+/**
+ * One code seen by the scanner. `version` and `eccLevel` are present only for
+ * QR codes read by the QR-only decoder — the any-symbology path does not report
+ * them.
+ */
+export interface ScanResult extends DecodedSymbol {
+  version?: number;
+  eccLevel?: number;
+}
+
 export interface ScannerOptions {
   /** The element the camera stream is attached to. */
   video: HTMLVideoElement;
   /** Called for each code seen, after de-duplication. */
-  onResult: (result: DecodedQr) => void;
+  onResult: (result: ScanResult) => void;
   /** Unexpected failures only — "no code in this frame" is not reported. */
   onError?: (error: Error) => void;
+  /**
+   * `'qr'` reads QR codes only. `'any'` reads barcodes too, and downloads a
+   * decoder roughly twice the size — so it is opt-in.
+   *
+   * @default 'qr'
+   */
+  formats?: "qr" | "any";
   /** Default `'environment'` (rear camera). */
   facingMode?: "environment" | "user";
   /** Pick a specific camera from {@link listCameras}. */

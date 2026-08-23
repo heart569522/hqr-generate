@@ -4,7 +4,7 @@
 // `import` before `node`, so Node could resolve to the browser build and die
 // trying to `fetch()` its own .wasm. If this route returns an image, the
 // resolution order is right.
-import { generatePng, generateSvg } from "@wirunrom/hqr-generate";
+import { qrPng, qrSvg } from "barqr";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +16,13 @@ export function GET(request: Request) {
 
   try {
     if (format === "svg") {
-      return new Response(generateSvg(text, { size }), {
+      return new Response(qrSvg(text, { size }), {
         headers: { "content-type": "image/svg+xml", "cache-control": "no-store" },
       });
     }
 
     // Note: no await. The Node build is synchronous.
-    const bytes = generatePng(text, { size });
+    const bytes = qrPng(text, { size });
     return new Response(bytes as BodyInit, {
       headers: { "content-type": "image/png", "cache-control": "no-store" },
     });

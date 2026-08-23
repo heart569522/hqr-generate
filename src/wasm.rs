@@ -12,8 +12,8 @@
 use js_sys::{Reflect, Uint8Array};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::*;
-// `is_instance_of` is only used on the decode path.
-#[cfg(feature = "decode")]
+// `is_instance_of` is only used on the decode paths.
+#[cfg(any(feature = "decode", feature = "decode-any"))]
 use wasm_bindgen::JsCast;
 
 #[cfg(feature = "generate")]
@@ -27,7 +27,7 @@ use crate::render::svg::render_svg_modules_with_logo;
 
 #[cfg(feature = "decode")]
 use crate::core::decode::{QrResult, decode as core_decode, decode_all as core_decode_all};
-#[cfg(feature = "decode")]
+#[cfg(any(feature = "decode", feature = "decode-any"))]
 use crate::core::types::DecodeInput;
 
 // ---------- errors ----------
@@ -46,7 +46,7 @@ fn gen_err(e: crate::error::GenerateError) -> JsValue {
     js_error(e.code(), &e.to_string())
 }
 
-#[cfg(feature = "decode")]
+#[cfg(any(feature = "decode", feature = "decode-any"))]
 fn dec_err(e: crate::error::DecodeError) -> JsValue {
     js_error(e.code(), &e.to_string())
 }
@@ -63,7 +63,7 @@ fn opts_of(size: u32, margin: u32, ecc: u8, size_mode: u8, logo_space: u8) -> Ge
     }
 }
 
-#[cfg(any(feature = "generate", feature = "decode"))]
+#[cfg(any(feature = "generate", feature = "decode", feature = "decode-any"))]
 #[inline]
 fn set_prop(obj: &js_sys::Object, key: &str, value: JsValue) {
     // Reflect::set on a plain object cannot fail; a panic here would poison the
@@ -71,6 +71,8 @@ fn set_prop(obj: &js_sys::Object, key: &str, value: JsValue) {
     let _ = Reflect::set(obj, &JsValue::from_str(key), &value);
 }
 
+// `decode-any` reports coordinates that can be negative, so it builds its own
+// numbers rather than going through this.
 #[cfg(any(feature = "generate", feature = "decode"))]
 #[inline]
 fn num(v: u32) -> JsValue {
@@ -192,6 +194,94 @@ pub fn generate_modules(
     Ok(obj.into())
 }
 
+// ---------- barcode (1D) ----------
+
+#[cfg(feature = "barcode")]
+use crate::core::barcode::{
+    BarcodeOptions, Symbology, generate_barcode_modules as core_barcode_modules,
+};
+
+#[cfg(feature = "barcode")]
+fn barcode_parts(
+    text: &str,
+    symbology: u8,
+    module_width: u32,
+    height: u32,
+    quiet: u32,
+) -> Result<crate::core::barcode::BarcodeModules, JsValue> {
+    let sym = Symbology::from_u8(symbology).ok_or_else(|| {
+        js_error(
+            "INVALID_OPTION",
+            &format!("unknown barcode symbology {symbology}"),
+        )
+    })?;
+    core_barcode_modules(
+        text,
+        sym,
+        BarcodeOptions {
+            module_width,
+            height,
+            quiet,
+        },
+    )
+    .map_err(gen_err)
+}
+
+/// 1D barcode as PNG bytes. `symbology`: see the JS layer's format table.
+#[cfg(feature = "barcode")]
+#[wasm_bindgen]
+pub fn generate_barcode_png(
+    text: &str,
+    symbology: u8,
+    module_width: u32,
+    height: u32,
+    quiet: u32,
+) -> Result<Uint8Array, JsValue> {
+    let m = barcode_parts(text, symbology, module_width, height, quiet)?;
+    let bytes = crate::render::barcode::render_barcode_png(&m).map_err(gen_err)?;
+    Ok(Uint8Array::from(bytes.as_slice()))
+}
+
+/// 1D barcode as SVG. `show_text` prints the data under the bars.
+#[cfg(feature = "barcode")]
+#[wasm_bindgen]
+pub fn generate_barcode_svg(
+    text: &str,
+    symbology: u8,
+    module_width: u32,
+    height: u32,
+    quiet: u32,
+    show_text: bool,
+) -> Result<String, JsValue> {
+    let m = barcode_parts(text, symbology, module_width, height, quiet)?;
+    Ok(crate::render::barcode::render_barcode_svg(&m, show_text))
+}
+
+/// The bar pattern, for callers rendering it themselves.
+/// `{ bars: Uint8Array, moduleWidth, height, quiet, origin, width, text }`.
+#[cfg(feature = "barcode")]
+#[wasm_bindgen]
+pub fn generate_barcode_modules(
+    text: &str,
+    symbology: u8,
+    module_width: u32,
+    height: u32,
+    quiet: u32,
+) -> Result<JsValue, JsValue> {
+    let m = barcode_parts(text, symbology, module_width, height, quiet)?;
+    let bars: Vec<u8> = m.bars.iter().map(|&b| b as u8).collect();
+
+    let obj = js_sys::Object::new();
+    set_prop(&obj, "bars", Uint8Array::from(bars.as_slice()).into());
+    set_prop(&obj, "moduleWidth", num(m.module_width));
+    set_prop(&obj, "height", num(m.height));
+    set_prop(&obj, "quiet", num(m.quiet));
+    set_prop(&obj, "origin", num(m.origin_px()));
+    set_prop(&obj, "width", num(m.img_width()));
+    set_prop(&obj, "text", JsValue::from_str(&m.text));
+    Ok(obj.into())
+}
+
 // ---------- decode ----------
 
 /// Read a QR code out of `Uint8Array` image bytes (PNG/JPEG/WebP) or an
@@ -205,7 +295,7 @@ pub fn decode(input: JsValue) -> Result<String, JsValue> {
 /// Normalize the two accepted JS shapes into a [`DecodeInput`] and run `f` over
 /// it. The RGBA buffer has to stay alive for the call, which is why this takes
 /// a closure instead of returning the input.
-#[cfg(feature = "decode")]
+#[cfg(any(feature = "decode", feature = "decode-any"))]
 fn with_decode_input<T>(
     input: JsValue,
     f: impl FnOnce(DecodeInput) -> Result<T, crate::error::DecodeError>,
@@ -276,7 +366,52 @@ fn result_to_js(r: &QrResult) -> JsValue {
     obj.into()
 }
 
-#[cfg(feature = "decode")]
+// ---------- decode, any symbology ----------
+
+#[cfg(feature = "decode-any")]
+use crate::core::decode_any::{AnyResult, decode_any_all as core_decode_any_all};
+
+/// Decode every symbol in the image, of any supported symbology.
+///
+/// Returns `{ text, format, points: [{ x, y }] }`. 1D symbologies report the
+/// two ends of the bar row; 2D report three or four corners.
+#[cfg(feature = "decode-any")]
+#[wasm_bindgen]
+pub fn decode_any_all(input: JsValue) -> Result<js_sys::Array, JsValue> {
+    let results = with_decode_input(input, core_decode_any_all)?;
+
+    let out = js_sys::Array::new_with_length(results.len() as u32);
+    for (i, r) in results.iter().enumerate() {
+        out.set(i as u32, any_result_to_js(r));
+    }
+    Ok(out)
+}
+
+/// The first symbol of any supported symbology, as its text.
+#[cfg(feature = "decode-any")]
+#[wasm_bindgen]
+pub fn decode_any(input: JsValue) -> Result<String, JsValue> {
+    Ok(with_decode_input(input, crate::core::decode_any::decode_any)?.text)
+}
+
+#[cfg(feature = "decode-any")]
+fn any_result_to_js(r: &AnyResult) -> JsValue {
+    let points = js_sys::Array::new_with_length(r.points.len() as u32);
+    for (i, (x, y)) in r.points.iter().enumerate() {
+        let p = js_sys::Object::new();
+        set_prop(&p, "x", JsValue::from_f64(*x as f64));
+        set_prop(&p, "y", JsValue::from_f64(*y as f64));
+        points.set(i as u32, p.into());
+    }
+
+    let obj = js_sys::Object::new();
+    set_prop(&obj, "text", JsValue::from_str(&r.text));
+    set_prop(&obj, "format", JsValue::from_str(r.format.as_str()));
+    set_prop(&obj, "points", points.into());
+    obj.into()
+}
+
+#[cfg(any(feature = "decode", feature = "decode-any"))]
 fn read_dimension(input: &JsValue, key: &str) -> Result<u32, JsValue> {
     Reflect::get(input, &JsValue::from_str(key))
         .ok()

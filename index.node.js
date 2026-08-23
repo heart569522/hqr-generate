@@ -6,14 +6,26 @@
 // decoder is only read off disk if something actually calls `decode`.
 
 import { createRequire } from "node:module";
-import { logoHref, normalizeOpts } from "./internal/options.js";
+import {
+  logoHref,
+  normalizeBarcodeOpts,
+  normalizeOpts,
+  showBarcodeText,
+} from "./internal/options.js";
 
 const require = createRequire(import.meta.url);
-const encoder = require("./pkg/nodejs/hqr_generate.js");
+const encoder = require("./pkg/nodejs/barqr.js");
 
 let _decoder;
 function decoder() {
-  return (_decoder ??= require("./pkg/nodejs-decode/hqr_generate.js"));
+  return (_decoder ??= require("./pkg/nodejs-decode/barqr.js"));
+}
+
+// The any-symbology decoder is roughly twice the size of the QR-only one, so it
+// is a separate module read off disk only when something asks for it.
+let _anyDecoder;
+function anyDecoder() {
+  return (_anyDecoder ??= require("./pkg/nodejs-decode-any/barqr.js"));
 }
 
 /**
@@ -25,6 +37,7 @@ function decoder() {
  */
 export async function ready(opts) {
   if (opts?.decoder) decoder();
+  if (opts?.anyDecoder) anyDecoder();
 }
 
 /**
@@ -34,7 +47,7 @@ export async function ready(opts) {
  * @param {import('./index.node').GenerateOptions} [opts]
  * @returns {Uint8Array}
  */
-export function generatePng(text, opts) {
+export function qrPng(text, opts) {
   return encoder.generate_png(text, ...normalizeOpts(opts));
 }
 
@@ -45,7 +58,7 @@ export function generatePng(text, opts) {
  * @param {import('./index.node').GenerateOptions} [opts]
  * @returns {string}
  */
-export function generateSvg(text, opts) {
+export function qrSvg(text, opts) {
   return encoder.generate_svg(text, ...normalizeOpts(opts), logoHref(opts));
 }
 
@@ -57,9 +70,9 @@ export function generateSvg(text, opts) {
  * @param {import('./index.node').GenerateOptions} [opts]
  * @returns {Uint8Array[]}
  */
-export function generateMany(texts, opts) {
+export function qrMany(texts, opts) {
   if (!Array.isArray(texts)) {
-    throw new TypeError("generateMany expects an array of strings");
+    throw new TypeError("qrMany expects an array of strings");
   }
   return encoder.generate_many_png(texts, ...normalizeOpts(opts));
 }
@@ -71,12 +84,45 @@ export function generateMany(texts, opts) {
  * @param {import('./index.node').GenerateOptions} [opts]
  * @returns {import('./index.node').QrModules}
  */
-export function generateModules(text, opts) {
+export function qrModules(text, opts) {
   return encoder.generate_modules(text, ...normalizeOpts(opts));
 }
 
-/** Alias of {@link generatePng}. */
-export const generate = generatePng;
+
+/**
+ * Generate a 1D barcode as PNG bytes. The human-readable digits are not drawn;
+ * use {@link barcodeSvg} when the text matters.
+ *
+ * @param {string} text
+ * @param {import('./index.node').BarcodeOptions} [opts]
+ * @returns {Uint8Array}
+ */
+export function barcodePng(text, opts) {
+  return encoder.generate_barcode_png(text, ...normalizeBarcodeOpts(opts));
+}
+
+/**
+ * Generate a 1D barcode as SVG, with the data underneath when the symbology
+ * conventionally shows it.
+ *
+ * @param {string} text
+ * @param {import('./index.node').BarcodeSvgOptions} [opts]
+ * @returns {string}
+ */
+export function barcodeSvg(text, opts) {
+  return encoder.generate_barcode_svg(text, ...normalizeBarcodeOpts(opts), showBarcodeText(opts));
+}
+
+/**
+ * The bar pattern, for drawing the barcode yourself.
+ *
+ * @param {string} text
+ * @param {import('./index.node').BarcodeOptions} [opts]
+ * @returns {import('./index.node').BarcodeModules}
+ */
+export function barcodeModules(text, opts) {
+  return encoder.generate_barcode_modules(text, ...normalizeBarcodeOpts(opts));
+}
 
 /**
  * Read a QR code out of image bytes (PNG/JPEG/WebP) or an `ImageData`-shaped
@@ -99,7 +145,25 @@ export function decodeAll(input) {
   return decoder().decode_all(input);
 }
 
-// Snake_case names from 0.5.x. Deprecated, kept so existing code keeps working.
-export const generate_png = generatePng;
-export const generate_svg = generateSvg;
-export const generate_modules = generateModules;
+/**
+ * Read a symbol of *any* supported symbology — QR, DataMatrix, Aztec, PDF417
+ * and the 1D formats. Loads a larger module on first use; {@link decode} is a
+ * third of the size if QR is all you need.
+ *
+ * @param {Uint8Array | ImageData} input
+ * @returns {string}
+ */
+export function decodeAny(input) {
+  return anyDecoder().decode_any(input);
+}
+
+/**
+ * Every symbol in the image, of any supported symbology.
+ *
+ * @param {Uint8Array | ImageData} input
+ * @returns {import('./index.node').DecodedSymbol[]}
+ */
+export function decodeAnyAll(input) {
+  return anyDecoder().decode_any_all(input);
+}
+

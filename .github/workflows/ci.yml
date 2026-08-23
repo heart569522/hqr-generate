@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -35,18 +35,53 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --features decode --all-targets -- -D warnings
+        run: cargo clippy --features decode,barcode --all-targets -- -D warnings
 
       - name: Test
         run: cargo test --features decode
 
       # Each published WASM binary is built from one of these feature sets, so
       # they all have to compile on their own — not just the union of them.
+      # --all-targets so examples, benches and tests are checked too, not just
+      # the library. An example that only builds under one feature set is
+      # otherwise invisible here and shows up as red squiggles in an editor.
       - name: Feature matrix
         run: |
-          cargo check --no-default-features --features generate
-          cargo check --no-default-features --features decode
-          cargo check --no-default-features --features generate,decode
+          cargo check --all-targets --no-default-features --features generate
+          cargo check --all-targets --no-default-features --features barcode
+          cargo check --all-targets --no-default-features --features decode
+          cargo check --all-targets --no-default-features --features generate,decode
+          cargo check --all-targets --no-default-features --features barcode,decode
+          cargo check --all-targets --no-default-features --features decode-any
+          cargo check --all-targets --no-default-features --features barcode,decode-any
+
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # `rust-version` is a promise to consumers. Declaring it and never
+      # checking it means finding out from a bug report.
+      - name: Pin the declared MSRV
+        run: |
+          msrv="$(grep '^rust-version' Cargo.toml | cut -d'"' -f2)"
+          echo "Cargo.toml declares $msrv"
+          rustup toolchain install "$msrv" --profile minimal
+          rustup default "$msrv"
+          rustc --version
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build every feature set at the MSRV
+        run: |
+          cargo check --all-targets --no-default-features --features generate
+          cargo check --all-targets --no-default-features --features barcode
+          cargo check --all-targets --no-default-features --features decode
+          cargo check --all-targets --no-default-features --features generate,decode
+          cargo check --all-targets --no-default-features --features barcode,decode
+          cargo check --all-targets --no-default-features --features decode-any
+          cargo check --all-targets --no-default-features --features barcode,decode-any
 
   wasm:
     name: WASM + npm package
@@ -70,8 +105,9 @@ jobs:
 
       - name: Clippy (wasm bindings)
         run: |
-          cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,generate -- -D warnings
+          cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,generate,barcode -- -D warnings
           cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,decode -- -D warnings
+          cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,decode-any -- -D warnings
 
       - run: npm ci
 
@@ -87,3 +123,12 @@ jobs:
 
       - name: Verify publish contents
         run: npm pack --dry-run --ignore-scripts
+
+      # The only place WASM is fetched over HTTP, canvases are real, object URLs
+      # can actually be revoked, and MediaStream exists. Nothing in Node reaches
+      # any of it.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: npm run test:browser

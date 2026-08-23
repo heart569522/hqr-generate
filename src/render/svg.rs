@@ -1,6 +1,6 @@
 use core::fmt::Write;
 
-use crate::core::types::{QrBitmap, QrModules};
+use crate::core::types::QrModules;
 
 /// Render SVG straight from the module grid: O(n^2) over modules (~29^2), not
 /// over scaled pixels (~400^2). Adjacent dark modules on a row are merged into
@@ -91,46 +91,6 @@ pub fn render_svg_modules_with_logo(m: &QrModules, logo_href: Option<&str>) -> S
             side,
             side
         );
-    }
-
-    out.push_str("</svg>");
-    out
-}
-
-/// Legacy API: render SVG from a rasterized bitmap. Prefer [`render_svg_modules`].
-pub fn render_svg(bitmap: &QrBitmap) -> String {
-    let size = bitmap.width;
-    let est = 256 + bitmap.pixels.len() / 4;
-    let mut out = String::with_capacity(est);
-
-    let _ = write!(
-        out,
-        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{0}" height="{0}" viewBox="0 0 {0} {0}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="white"/>"#,
-        size
-    );
-
-    let w = bitmap.width as usize;
-    for y in 0..bitmap.height as usize {
-        let row = &bitmap.pixels[y * w..(y + 1) * w];
-        let mut x = 0;
-        while x < w {
-            if row[x] != 0 {
-                x += 1;
-                continue;
-            }
-            let start = x;
-            x += 1;
-            while x < w && row[x] == 0 {
-                x += 1;
-            }
-            let _ = write!(
-                out,
-                r#"<rect x="{}" y="{}" width="{}" height="1" fill="black"/>"#,
-                start,
-                y,
-                x - start
-            );
-        }
     }
 
     out.push_str("</svg>");
@@ -240,16 +200,18 @@ mod tests {
     }
 
     #[test]
-    fn run_merging_beats_one_rect_per_module() {
+    fn run_merging_keeps_the_path_far_smaller_than_one_rect_per_module() {
         let m = generate_qr_modules("https://example.com/a/b/c?d=e", GenerateOptions::default())
             .unwrap();
-        let compact = render_svg_modules(&m);
-        let legacy = render_svg(&crate::core::generate::rasterize(&m));
+        let svg = render_svg_modules(&m);
+
+        // One subpath per horizontal run of dark modules, against the naive
+        // one-per-dark-module an unmerged renderer would emit.
+        let subpaths = svg.matches('m').count();
+        let dark_modules = m.dark.iter().filter(|d| **d).count();
         assert!(
-            compact.len() * 10 < legacy.len(),
-            "path {} vs rects {}",
-            compact.len(),
-            legacy.len()
+            subpaths * 2 < dark_modules,
+            "{subpaths} subpaths for {dark_modules} dark modules — runs are not being merged"
         );
     }
 }

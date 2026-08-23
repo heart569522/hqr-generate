@@ -1,14 +1,14 @@
 {
-  "name": "@wirunrom/hqr-generate",
-  "version": "0.6.0",
+  "name": "barqr",
+  "version": "1.0.0",
   "description": "High-performance QR code generator and decoder powered by Rust + WASM",
   "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wirunrom/hqr-generate.git"
+    "url": "git+https://github.com/wirunrom/barqr.git"
   },
-  "homepage": "https://github.com/wirunrom/hqr-generate#readme",
+  "homepage": "https://github.com/wirunrom/barqr#readme",
   "engines": {
     "node": ">=20.19"
   },
@@ -25,6 +25,7 @@
     "scanner.js",
     "scanner.d.ts",
     "react/**",
+    "vue/**",
     "LICENSE",
     "README.md",
     "CHANGELOG.md",
@@ -54,6 +55,10 @@
       "types": "./react/index.d.ts",
       "default": "./react/index.js"
     },
+    "./vue": {
+      "types": "./vue/index.d.ts",
+      "default": "./vue/index.js"
+    },
     "./payload": {
       "types": "./payload.d.ts",
       "default": "./payload.js"
@@ -73,27 +78,39 @@
     "./package.json": "./package.json"
   },
   "peerDependencies": {
-    "react": ">=17"
+    "react": ">=17",
+    "vue": ">=3.3"
   },
   "peerDependenciesMeta": {
     "react": {
       "optional": true
+    },
+    "vue": {
+      "optional": true
     }
   },
   "scripts": {
-    "clean": "rm -rf pkg react",
-    "build:wasm:web": "wasm-pack build --target web --out-dir pkg/web -- --no-default-features --features wasm,generate",
+    "clean": "rm -rf pkg react vue",
+    "build:wasm:web": "wasm-pack build --target web --out-dir pkg/web -- --no-default-features --features wasm,generate,barcode",
     "build:wasm:web-decode": "wasm-pack build --target web --out-dir pkg/web-decode -- --no-default-features --features wasm,decode",
-    "build:wasm:node": "wasm-pack build --target nodejs --out-dir pkg/nodejs -- --no-default-features --features wasm,generate",
+    "build:wasm:web-decode-any": "wasm-pack build --target web --out-dir pkg/web-decode-any -- --no-default-features --features wasm,decode-any",
+    "build:wasm:node": "wasm-pack build --target nodejs --out-dir pkg/nodejs -- --no-default-features --features wasm,generate,barcode",
     "build:wasm:node-decode": "wasm-pack build --target nodejs --out-dir pkg/nodejs-decode -- --no-default-features --features wasm,decode",
-    "build:wasm": "npm run build:wasm:web && npm run build:wasm:web-decode && npm run build:wasm:node && npm run build:wasm:node-decode && node scripts/finalize-pkg.mjs",
+    "build:wasm:node-decode-any": "wasm-pack build --target nodejs --out-dir pkg/nodejs-decode-any -- --no-default-features --features wasm,decode-any",
+    "build:wasm": "npm run build:wasm:web && npm run build:wasm:web-decode && npm run build:wasm:web-decode-any && npm run build:wasm:node && npm run build:wasm:node-decode && npm run build:wasm:node-decode-any && node scripts/finalize-pkg.mjs",
     "build:react": "tsc -p tsconfig.react.json",
-    "build": "npm run build:wasm && npm run build:react",
-    "test:rust": "cargo test --features decode",
+    "build:vue": "tsc -p tsconfig.vue.json",
+    "build": "npm run build:wasm && npm run build:react && npm run build:vue",
+    "test:rust": "cargo test --features decode,barcode && cargo test --features barcode,decode-any --test barcode_roundtrip",
     "test:node": "node --test tests/node/*.test.mjs",
+    "test:browser": "node scripts/browser-test.mjs",
     "test": "npm run test:rust && npm run test:node",
-    "lint": "cargo fmt --all -- --check && cargo clippy --features decode --all-targets -- -D warnings",
+    "lint": "cargo fmt --all -- --check && cargo clippy --features decode,barcode --all-targets -- -D warnings",
+    "lint:wasm": "cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,generate,barcode -- -D warnings && cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,decode -- -D warnings && cargo clippy --target wasm32-unknown-unknown --no-default-features --features wasm,decode-any -- -D warnings",
+    "lint:all": "npm run lint && npm run lint:wasm",
     "bench": "cargo bench --bench generate",
+    "fuzz:seeds": "cargo run --release --features decode --example fuzz_seeds",
+    "fuzz": "npm run fuzz:seeds && cargo +nightly fuzz run decode_bytes -- -max_total_time=300 -max_len=65536",
     "size": "node scripts/size-report.mjs",
     "prepack": "npm run clean && npm run build && npm run test:node",
     "publish:test": "npm publish --tag next --registry=https://registry.npmjs.org --access public",
@@ -123,7 +140,9 @@
   ],
   "devDependencies": {
     "@types/react": "^19.2.9",
+    "playwright": "^1.62.1",
     "react": "^19.2.4",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vue": "^3.5.41"
   }
 }

@@ -2,19 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createScanner } from "../scanner.js";
-
-export interface ScanResult {
-  text: string;
-  version: number;
-  eccLevel: number;
-  corners: { x: number; y: number }[];
-}
+import type { ScanResult } from "../scanner";
 
 export interface UseQrScannerOptions {
   /** Start the camera. Set to false to release it without unmounting. */
   enabled?: boolean;
   /** Called for every code seen, after de-duplication. */
   onResult?: (result: ScanResult) => void;
+  /**
+   * `'any'` reads barcodes as well as QR, at roughly twice the decoder
+   * download. Changing it restarts the camera, because the decoder changes.
+   */
+  formats?: "qr" | "any";
   facingMode?: "environment" | "user";
   deviceId?: string;
   /** Minimum gap between decode attempts. Default 120 ms. */
@@ -29,16 +28,17 @@ export interface UseQrScannerOptions {
  * Live QR scanning from the device camera.
  *
  * ```tsx
- * const { videoRef, result, error } = useQrScanner({ onResult: (r) => console.log(r.text) });
+ * const { videoRef, result, error } = useScanner({ onResult: (r) => console.log(r.text) });
  * return <video ref={videoRef} playsInline muted />;
  * ```
  *
  * The camera is released on unmount and whenever `enabled` goes false.
  */
-export function useQrScanner(opts: UseQrScannerOptions = {}) {
+export function useScanner(opts: UseQrScannerOptions = {}) {
   const {
     enabled = true,
     onResult,
+    formats = "qr",
     facingMode = "environment",
     deviceId,
     scanIntervalMs,
@@ -62,7 +62,7 @@ export function useQrScanner(opts: UseQrScannerOptions = {}) {
 
     const video = videoRef.current;
     if (!video) {
-      setError(new Error("useQrScanner: attach videoRef to a <video> element"));
+      setError(new Error("useScanner: attach videoRef to a <video> element"));
       return;
     }
 
@@ -73,6 +73,7 @@ export function useQrScanner(opts: UseQrScannerOptions = {}) {
       try {
         const started = await createScanner({
           video,
+          formats,
           facingMode,
           deviceId,
           scanIntervalMs,
@@ -105,7 +106,7 @@ export function useQrScanner(opts: UseQrScannerOptions = {}) {
       scanner?.stop();
       setRunning(false);
     };
-  }, [enabled, facingMode, deviceId, scanIntervalMs, maxSide, dedupeMs]);
+  }, [enabled, formats, facingMode, deviceId, scanIntervalMs, maxSide, dedupeMs]);
 
   const reset = useCallback(() => setResult(null), []);
 

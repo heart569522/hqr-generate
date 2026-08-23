@@ -51,7 +51,7 @@ fn logo_side(n: u32, percent: u8, ecc: Ecc) -> Result<u32, GenerateError> {
     // `n` is always odd, so an odd side leaves an equal gap on both sides and
     // the square sits exactly on the centre module.
     let mut side = (n * u32::from(percent)).div_ceil(100).max(1);
-    if side % 2 == 0 {
+    if side.is_multiple_of(2) {
         side -= 1;
     }
     Ok(side.max(1))
@@ -147,8 +147,10 @@ pub fn generate_qr_modules(text: &str, opts: GenerateOptions) -> Result<QrModule
 
 /// Rasterize modules into an 8-bit grayscale bitmap (0 = dark, 255 = light).
 ///
-/// Legacy path: the PNG and SVG renderers work straight off [`QrModules`] and
-/// never allocate this buffer. Kept for callers that want raw pixels.
+/// The renderers never call this — they work straight off [`QrModules`] and
+/// allocate no pixel buffer at all. It exists for callers who want the pixels
+/// themselves: compositing a logo, drawing into an existing surface, or handing
+/// the buffer to another encoder.
 pub fn rasterize(m: &QrModules) -> QrBitmap {
     let img_size = m.img_size;
     let mut pixels = vec![255u8; (img_size * img_size) as usize];

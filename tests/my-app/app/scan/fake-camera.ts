@@ -4,7 +4,7 @@
 // `getUserMedia` exercises the entire scanner path — frame pump, downscale,
 // decode, de-duplication, teardown — with nothing faked downstream of the
 // stream itself.
-import { generateModules } from "@wirunrom/hqr-generate";
+import { qrModules } from "barqr";
 
 export interface FakeCamera {
   /** Undo the getUserMedia patch and stop repainting. */
@@ -17,7 +17,7 @@ export async function installFakeCamera(initialText: string): Promise<FakeCamera
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d")!;
 
-  let modules = await generateModules(initialText, { size: 480 });
+  let modules = await qrModules(initialText, { size: 480 });
 
   const paint = () => {
     const { n, scale, size, origin, dark } = modules;
@@ -60,7 +60,7 @@ export async function installFakeCamera(initialText: string): Promise<FakeCamera
       Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: real });
     },
     setText: async (text: string) => {
-      modules = await generateModules(text, { size: 480 });
+      modules = await qrModules(text, { size: 480 });
     },
   };
 }

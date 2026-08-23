@@ -10,19 +10,38 @@ import init, {
   generate_svg as _svg,
   generate_modules as _modules,
   generate_many_png as _manyPng,
-} from "./pkg/web/hqr_generate.js";
+  generate_barcode_png as _barPng,
+  generate_barcode_svg as _barSvg,
+  generate_barcode_modules as _barModules,
+} from "./pkg/web/barqr.js";
 
-import { logoHref, normalizeOpts } from "./internal/options.js";
+import {
+  logoHref,
+  normalizeBarcodeOpts,
+  normalizeOpts,
+  showBarcodeText,
+} from "./internal/options.js";
 
 let _encoderReady;
 let _decoderReady;
+let _anyDecoderReady;
 
 function ensureEncoder() {
   return (_encoderReady ??= init());
 }
 
 function ensureDecoder() {
-  return (_decoderReady ??= import("./pkg/web-decode/hqr_generate.js").then(async (mod) => {
+  return (_decoderReady ??= import("./pkg/web-decode/barqr.js").then(async (mod) => {
+    await mod.default();
+    return mod;
+  }));
+}
+
+// A third module, and the largest. It reads every symbology rxing supports, and
+// costs roughly twice the QR-only decoder — which is exactly why it is separate:
+// a page that only scans QR codes should never fetch it.
+function ensureAnyDecoder() {
+  return (_anyDecoderReady ??= import("./pkg/web-decode-any/barqr.js").then(async (mod) => {
     await mod.default();
     return mod;
   }));
@@ -36,7 +55,11 @@ function ensureDecoder() {
  * @returns {Promise<void>}
  */
 export async function ready(opts) {
-  await Promise.all([ensureEncoder(), opts?.decoder ? ensureDecoder() : null]);
+  await Promise.all([
+    ensureEncoder(),
+    opts?.decoder ? ensureDecoder() : null,
+    opts?.anyDecoder ? ensureAnyDecoder() : null,
+  ]);
 }
 
 /**
@@ -46,7 +69,7 @@ export async function ready(opts) {
  * @param {import('./index').GenerateOptions} [opts]
  * @returns {Promise<Uint8Array>}
  */
-export async function generatePng(text, opts) {
+export async function qrPng(text, opts) {
   const args = normalizeOpts(opts);
   await ensureEncoder();
   return _png(text, ...args);
@@ -59,7 +82,7 @@ export async function generatePng(text, opts) {
  * @param {import('./index').GenerateOptions} [opts]
  * @returns {Promise<string>}
  */
-export async function generateSvg(text, opts) {
+export async function qrSvg(text, opts) {
   const args = normalizeOpts(opts);
   const href = logoHref(opts);
   await ensureEncoder();
@@ -69,7 +92,7 @@ export async function generateSvg(text, opts) {
 /**
  * Encode a batch in one crossing of the JS/WASM boundary. For a page rendering
  * a table of codes this is meaningfully cheaper than a loop over
- * {@link generatePng}.
+ * {@link qrPng}.
  *
  * Fails on the first bad entry; the thrown error carries `index`.
  *
@@ -77,9 +100,9 @@ export async function generateSvg(text, opts) {
  * @param {import('./index').GenerateOptions} [opts]
  * @returns {Promise<Uint8Array[]>}
  */
-export async function generateMany(texts, opts) {
+export async function qrMany(texts, opts) {
   if (!Array.isArray(texts)) {
-    throw new TypeError("generateMany expects an array of strings");
+    throw new TypeError("qrMany expects an array of strings");
   }
   const args = normalizeOpts(opts);
   await ensureEncoder();
@@ -94,14 +117,58 @@ export async function generateMany(texts, opts) {
  * @param {import('./index').GenerateOptions} [opts]
  * @returns {Promise<import('./index').QrModules>}
  */
-export async function generateModules(text, opts) {
+export async function qrModules(text, opts) {
   const args = normalizeOpts(opts);
   await ensureEncoder();
   return _modules(text, ...args);
 }
 
-/** Alias of {@link generatePng}. */
-export const generate = generatePng;
+
+/**
+ * Generate a 1D barcode as PNG bytes.
+ *
+ * The human-readable digits are not drawn — that needs a font, which would cost
+ * more binary than everything else here combined. Use {@link barcodeSvg}
+ * when the text matters.
+ *
+ * @param {string} text
+ * @param {import('./index').BarcodeOptions} [opts]
+ * @returns {Promise<Uint8Array>}
+ */
+export async function barcodePng(text, opts) {
+  const args = normalizeBarcodeOpts(opts);
+  await ensureEncoder();
+  return _barPng(text, ...args);
+}
+
+/**
+ * Generate a 1D barcode as SVG, with the data printed underneath when the
+ * symbology conventionally does so (EAN and UPC do; Code 128 does not).
+ * Override with `text: true | false`.
+ *
+ * @param {string} text
+ * @param {import('./index').BarcodeSvgOptions} [opts]
+ * @returns {Promise<string>}
+ */
+export async function barcodeSvg(text, opts) {
+  const args = normalizeBarcodeOpts(opts);
+  const withText = showBarcodeText(opts);
+  await ensureEncoder();
+  return _barSvg(text, ...args, withText);
+}
+
+/**
+ * The bar pattern, for drawing the barcode yourself.
+ *
+ * @param {string} text
+ * @param {import('./index').BarcodeOptions} [opts]
+ * @returns {Promise<import('./index').BarcodeModules>}
+ */
+export async function barcodeModules(text, opts) {
+  const args = normalizeBarcodeOpts(opts);
+  await ensureEncoder();
+  return _barModules(text, ...args);
+}
 
 /**
  * Read a QR code out of image bytes (PNG/JPEG/WebP) or canvas `ImageData`.
@@ -127,7 +194,30 @@ export async function decodeAll(input) {
   return mod.decode_all(input);
 }
 
-// Snake_case names from 0.5.x. Deprecated, kept so existing code keeps working.
-export const generate_png = generatePng;
-export const generate_svg = generateSvg;
-export const generate_modules = generateModules;
+/**
+ * Read a symbol of *any* supported symbology — QR, DataMatrix, Aztec, PDF417
+ * and the 1D formats — out of image bytes or `ImageData`.
+ *
+ * Loads a separate, larger WASM module on first use. If you only ever read QR
+ * codes, {@link decode} is a third of the download.
+ *
+ * @param {Uint8Array | ImageData} input
+ * @returns {Promise<string>}
+ */
+export async function decodeAny(input) {
+  const mod = await ensureAnyDecoder();
+  return mod.decode_any(input);
+}
+
+/**
+ * Every symbol in the image, of any supported symbology, each with the format
+ * that was recognised and where it sits.
+ *
+ * @param {Uint8Array | ImageData} input
+ * @returns {Promise<import('./index').DecodedSymbol[]>}
+ */
+export async function decodeAnyAll(input) {
+  const mod = await ensureAnyDecoder();
+  return mod.decode_any_all(input);
+}
+

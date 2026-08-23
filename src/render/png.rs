@@ -4,7 +4,7 @@ use crate::error::GenerateError;
 /// Clear pixel range `[start, end)` in a 1-bit PNG scanline.
 /// 1-bit grayscale: bit 7 is the leftmost pixel, 0 is black.
 #[inline]
-fn clear_range_1bit(row: &mut [u8], start: u32, end: u32) {
+pub(crate) fn clear_range_1bit(row: &mut [u8], start: u32, end: u32) {
     if start >= end {
         return;
     }
@@ -107,7 +107,11 @@ pub fn render_png_modules(m: &QrModules) -> Result<Vec<u8>, GenerateError> {
     Ok(out)
 }
 
-/// Legacy 8-bit grayscale path, for callers still going through [`QrBitmap`].
+/// Encode an 8-bit grayscale buffer as PNG.
+///
+/// The fast path never builds one of these — it rasterizes straight into 1-bit
+/// scanlines. This is for callers who already hold pixels: from
+/// [`crate::rasterize`], or from their own compositing.
 pub fn render_png(bitmap: &QrBitmap) -> Result<Vec<u8>, GenerateError> {
     let est = 256 + bitmap.pixels.len() / 4;
     let mut out = Vec::with_capacity(est);

@@ -3,7 +3,8 @@
 //! Run with `cargo test --features decode`.
 #![cfg(all(feature = "generate", feature = "decode"))]
 
-use hqr_generate::{
+use barqr::core::decode::MAX_DECODE_PIXELS;
+use barqr::{
     DecodeInput, Ecc, GenerateOptions, QrBitmap, QrModules, SizeMode, decode, decode_all,
     generate_qr_modules, png as qr_png, render_png, render_png_modules,
 };
@@ -262,6 +263,98 @@ fn decode_returns_the_first_of_several() {
     .unwrap();
     assert_eq!(one.text, "only one");
     assert_eq!(one.corners.len(), 4);
+}
+
+/// A compressed image is a description of a canvas, not the canvas itself.
+/// These inputs are small files that claim to be enormous pictures.
+#[test]
+fn oversized_images_are_refused_before_anything_is_allocated() {
+    for side in [8_000u32, 16_000] {
+        let png = render_png(&QrBitmap {
+            width: side,
+            height: side,
+            pixels: vec![255u8; (side as usize) * (side as usize)],
+        })
+        .unwrap();
+
+        let pixels = u64::from(side) * u64::from(side);
+        assert!(pixels > MAX_DECODE_PIXELS, "test input must exceed the cap");
+
+        let err = decode(DecodeInput::ImageBytes(&png)).unwrap_err();
+        assert_eq!(
+            err.code(),
+            "IMAGE_TOO_LARGE",
+            "{side}x{side} should be refused"
+        );
+    }
+}
+
+#[test]
+fn images_within_the_cap_still_decode() {
+    // 4000x4000 is 16 MP — a plausible camera photo, and well under the limit.
+    let text = "https://example.com/big-but-reasonable";
+    let m = generate_qr_modules(
+        text,
+        GenerateOptions {
+            size: 3_000,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let bytes = render_png_modules(&m).unwrap();
+
+    assert!(u64::from(m.img_size) * u64::from(m.img_size) < MAX_DECODE_PIXELS);
+    assert_eq!(decode(DecodeInput::ImageBytes(&bytes)).unwrap().text, text);
+}
+
+#[test]
+fn oversized_rgba_is_refused_too() {
+    // The caller controls width/height here, so the cap has to apply on this
+    // path as well — not just to encoded files.
+    let err = decode(DecodeInput::Rgba {
+        width: 30_000,
+        height: 30_000,
+        data: &[],
+    })
+    .unwrap_err();
+    assert_eq!(err.code(), "IMAGE_TOO_LARGE");
+
+    // A lopsided canvas that sneaks under the pixel budget is still refused.
+    let err = decode(DecodeInput::Rgba {
+        width: 1,
+        height: 1_000_000,
+        data: &[],
+    })
+    .unwrap_err();
+    assert_eq!(err.code(), "IMAGE_TOO_LARGE");
+}
+
+/// Regression: fuzzing found RGBA input that panicked inside rqrr 0.7.1.
+///
+/// `Perspective::map` asserts its result fits in an `i32`, but the value is
+/// computed from image data: a degenerate transform drives the denominator
+/// toward zero and the coordinate to infinity or NaN, and the assert fires.
+/// rqrr 0.10 no longer reaches that state.
+///
+/// This matters more here than in an ordinary dependency, because
+/// `wasm32-unknown-unknown` has `panic-strategy: abort` — a panic anywhere in
+/// the decode path takes the whole WASM instance with it and cannot be caught.
+#[test]
+fn fuzz_regression_degenerate_perspective_does_not_panic() {
+    let raw = include_bytes!("fixtures/rqrr-perspective-panic.rgba");
+
+    // Same geometry the fuzz target derives: width from the first two bytes.
+    let width = (usize::from(u16::from_le_bytes([raw[0], raw[1]])) % 300) + 1;
+    let rest = &raw[2..];
+    let height = rest.len() / (width * 4);
+
+    // Must return — Ok or a typed Err — rather than abort the process.
+    let result = decode_all(DecodeInput::Rgba {
+        width: width as u32,
+        height: height as u32,
+        data: &rest[..width * height * 4],
+    });
+    assert!(result.is_err() || result.is_ok());
 }
 
 #[test]

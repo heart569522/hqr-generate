@@ -1,14 +1,29 @@
 /* =========================================================
- * @wirunrom/hqr-generate — Node / SSR types
+ * barqr — Node / SSR types
  *
  * Same API as the browser entry, but synchronous: the Node build loads WASM at
  * import time, so nothing here returns a Promise. `await` on these values is
  * harmless if you share code between server and client.
  * ======================================================= */
 
-import type { DecodedQr, GenerateOptions, QrModules, SvgOptions } from "./index";
+import type {
+  DecodedSymbol,
+  BarcodeModules,
+  BarcodeOptions,
+  BarcodeSvgOptions,
+  DecodedQr,
+  GenerateOptions,
+  QrModules,
+  SvgOptions,
+} from "./index";
 
 export type {
+  BarcodeFormat,
+  DecodedFormat,
+  DecodedSymbol,
+  BarcodeModules,
+  BarcodeOptions,
+  BarcodeSvgOptions,
   DecodedQr,
   GenerateOptions,
   HqrError,
@@ -20,22 +35,29 @@ export type {
 } from "./index";
 
 /** Generate a QR code as PNG bytes (1-bit grayscale). */
-export function generatePng(text: string, opts?: GenerateOptions): Uint8Array;
+export function qrPng(text: string, opts?: GenerateOptions): Uint8Array;
 
 /** Generate a QR code as SVG markup (a single `<path>`). */
-export function generateSvg(text: string, opts?: SvgOptions): string;
+export function qrSvg(text: string, opts?: SvgOptions): string;
+
+/** Generate a 1D barcode as PNG bytes. Digits are not drawn — see {@link barcodeSvg}. */
+export function barcodePng(text: string, opts?: BarcodeOptions): Uint8Array;
+
+/** Generate a 1D barcode as SVG, with the data underneath where conventional. */
+export function barcodeSvg(text: string, opts?: BarcodeSvgOptions): string;
+
+/** The bar pattern, for drawing the barcode yourself. */
+export function barcodeModules(text: string, opts?: BarcodeOptions): BarcodeModules;
 
 /**
  * Encode a batch in one crossing of the JS/WASM boundary. Fails on the first
  * bad entry; the thrown error carries an `index` property.
  */
-export function generateMany(texts: string[], opts?: GenerateOptions): Uint8Array[];
+export function qrMany(texts: string[], opts?: GenerateOptions): Uint8Array[];
 
 /** The raw module grid, for rendering the code yourself. */
-export function generateModules(text: string, opts?: GenerateOptions): QrModules;
+export function qrModules(text: string, opts?: GenerateOptions): QrModules;
 
-/** Alias of {@link generatePng}. */
-export function generate(text: string, opts?: GenerateOptions): Uint8Array;
 
 /**
  * Read a QR code out of encoded image bytes (PNG / JPEG / WebP) or an
@@ -48,14 +70,18 @@ export function decode(input: Uint8Array | ImageData): string;
 export function decodeAll(input: Uint8Array | ImageData): DecodedQr[];
 
 /**
+ * Read a symbol of **any** supported symbology. Loads a larger module on first
+ * use; {@link decode} is a third of the size if QR is all you need.
+ */
+export function decodeAny(input: Uint8Array | ImageData): string;
+
+/** Every symbol in the image, of any supported symbology, with its position. */
+export function decodeAnyAll(input: Uint8Array | ImageData): DecodedSymbol[];
+
+/**
  * Present for parity with the browser entry. In Node the encoder is already
  * loaded; pass `{ decoder: true }` to warm the decoder too.
  */
-export function ready(opts?: { decoder?: boolean }): Promise<void>;
+export function ready(opts?: { decoder?: boolean; anyDecoder?: boolean }): Promise<void>;
 
-/** @deprecated use {@link generatePng} */
-export function generate_png(text: string, opts?: GenerateOptions): Uint8Array;
-/** @deprecated use {@link generateSvg} */
-export function generate_svg(text: string, opts?: GenerateOptions): string;
-/** @deprecated use {@link generateModules} */
-export function generate_modules(text: string, opts?: GenerateOptions): QrModules;
+/** @deprecated use {@link qrSvg} */

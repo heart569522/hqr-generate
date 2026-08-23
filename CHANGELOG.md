@@ -1,3 +1,172 @@
+## [1.0.0] - 2026-08-24
+
+### Renamed — API
+
+Every function now says which symbol family it belongs to, because the package
+does both and `generate*` quietly meaning "QR" was an accident of history.
+
+| was | now |
+| --- | --- |
+| `generatePng` / `generate` / `generate_png` | `qrPng` |
+| `generateSvg` / `generate_svg` | `qrSvg` |
+| `generateModules` / `generate_modules` | `qrModules` |
+| `generateMany` | `qrMany` |
+| `useGenerate` | `useQr` |
+| `useGenerateSvg` | `useQrSvg` |
+| `useGenerateModules` | `useQrModules` |
+| `useQrScanner` | `useScanner` |
+
+`decode`, `decodeAll` and `ready` are unchanged — they were never QR-specific —
+and every option keeps its name. `useBarcodeModules` joins `useBarcode` and
+`useBarcodeSvg`, so the two families line up hook for hook. The bare `generate`
+alias is gone: with two symbol families it no longer answers "generate what?".
+
+### Renamed — package
+
+The package moves to a new name at 1.0. `barqr` is deprecated
+and 0.6.0 is its last release; see [MIGRATION.md](./MIGRATION.md). For most code
+the whole change is the import path — every function, option and hook keeps its
+name.
+
+`scripts/rename.mjs` performs the rename across the repo, since the old name
+appears in 23 files for npm alone and 39 once the crate and repo are included.
+
+
+### Security
+
+- **Fixed a reachable panic in the decoder.** Fuzzing found RGBA input that
+  panicked inside `rqrr` 0.7.1: `Perspective::map` asserts that its result fits
+  in an `i32`, but that value is computed from image data — a degenerate
+  transform drives the denominator toward zero and the coordinate to infinity or
+  NaN, and the assertion fires.
+
+  This is worse here than an ordinary dependency bug, because
+  `wasm32-unknown-unknown` has `panic-strategy: abort`: a panic anywhere in the
+  decode path takes the whole WASM instance with it, and **cannot be caught**.
+  One crafted image would end QR decoding for the rest of the page's life, or
+  for a server handler's request.
+
+  `rqrr` is upgraded 0.7 -> 0.10, which no longer reaches that state. The input
+  is kept as a regression test. Note that the assertion is still present
+  upstream, so the defence is keeping the dependency current and continuing to
+  fuzz — there is no way to catch it from our side.
+
+- **The decoder no longer trusts an image's declared size.** A compressed image
+  describes a canvas rather than containing one: a 1.2 MB PNG claiming
+  16000x16000 made the decoder allocate **976 MB** and spend 2.2 s of CPU before
+  concluding there was no QR code — roughly an 800x amplification from a file
+  anyone could upload. `image`'s own `max_alloc` limit did not prevent it,
+  because the largest allocation was this crate's `to_rgba8()` call, which that
+  accounting never sees.
+
+  Dimensions are now checked against the header before any pixels are read, and
+  anything over 40 megapixels is refused with the new `IMAGE_TOO_LARGE` code, in
+  well under a millisecond and with nothing allocated. The same cap applies to
+  raw RGBA input, where the caller supplies the dimensions directly, and to
+  lopsided canvases that would slip under a pixels-only budget.
+
+  40 MP leaves room for any phone camera and most flatbed scans. A QR code needs
+  a few hundred pixels across to read, not tens of thousands.
+
+### Removed
+
+- **The 0.5 snake_case aliases** `generate_png`, `generate_svg` and
+  `generate_modules`. Carrying something marked `@deprecated` into a 1.0 means
+  removing it in 2.0 or never; this picks. A test now pins the exported surface
+  so nothing creeps back in.
+- **`render_svg(&QrBitmap)`**, which emitted one `<rect>` per module — 143 KB
+  against the 5.2 KB the path renderer produces for the same code. Nothing
+  should have been calling it. The 8-bit raster API it belonged to
+  (`QrBitmap`, `rasterize`, `render_png`) stays: getting pixels is a real thing
+  to want, and the docs no longer call it "legacy".
+
+### Changed
+
+- **Decoding converts to luma instead of RGBA** — a quarter of the memory, and
+  faster on legitimate images too (16 MP: 128 ms -> 101 ms, 61 MB -> 15 MB). The
+  colour channels were collapsed to luminance on the very next line anyway.
+- `GenerateError` and `DecodeError` are now `#[non_exhaustive]`, so adding a
+  failure mode after 1.0 will not be a breaking change for Rust consumers. Match
+  with a `_` arm.
+- The opt-in decoder binary grew by ~9 KB gzipped, which is the cost of the
+  bounded reader.
+
+### Added
+
+- **The scanner reads barcodes**, with `formats: "any"`. Results are normalised
+  across both decoders onto `{ text, format, points }`, so switching the option
+  does not change the shape `onResult` receives; `version` and `eccLevel` stay
+  available on QR read through the QR-only path. `useScanner` takes the same
+  option in React and Vue.
+- **`useDecodeAny`** in both wrapper layers, the counterpart to `useDecode`.
+- **Barcode decoding**, through `decodeAny` and `decodeAnyAll` — QR, DataMatrix,
+  Aztec, PDF417 and the 1D formats, each result carrying the symbology that was
+  recognised and where it sits in the image.
+
+  It ships as a **third WASM module**, not as a replacement for the QR decoder.
+  Reading QR alone stays at 267 KB gzipped; reading everything costs 598 KB, and
+  nothing fetches it until `decodeAny` is called. Trimming `rxing` to the
+  features this crate actually uses — no result-content parsing, no serde, no
+  encoder side — took that from 852 KB.
+
+  Two behaviours worth knowing, both correct and both now pinned by tests:
+  UPC-A *is* a zero-prefixed EAN-13, so a decoder may report either; and
+  Codabar's `A`–`D` start/stop characters are delimiters, so they come back
+  stripped.
+
+- **1D barcodes.** Nine symbologies — Code 128, Code 39 (with or without check
+  character), Code 93, Code 11, Codabar, EAN-8, EAN-13 and ITF — as PNG, SVG or
+  the raw bar pattern, through `barcodePng` / `barcodeSvg` /
+  `barcodeModules`, plus `useBarcode` and `useBarcodeSvg` in both the
+  React and Vue layers.
+
+  The encoder grows from 85 KB to 100 KB gzipped for all nine, because a 1D
+  symbology is lookup tables and bit patterns next to the Reed-Solomon and
+  masking machinery QR needs. It rides the same renderers: whole pixels per
+  module, runs merged before they reach the encoder.
+
+  Each format **rejects** data it cannot represent rather than mangling it —
+  Code 39 has no lowercase, EAN-13 needs 12 or 13 digits — with a new
+  `INVALID_BARCODE_DATA` code naming the symbology. EAN computes its check digit
+  when given 12 digits, and the printed text includes it, so the digits under
+  the bars always agree with the bars.
+
+  SVG prints the human-readable data where the symbology conventionally shows
+  it (EAN and UPC do, Code 128 does not); PNG does not, because drawing text
+  means shipping a font, which would cost more than everything else in the
+  binary.
+
+- **Vue composables** — `barqr/vue`, the same five the React
+  layer exposes. Values, refs and getters are all accepted, and everything is
+  released on scope disposal.
+
+  They are guarded for SSR, which matters more in Vue than it does in React:
+  `watchEffect` runs during server rendering while `useEffect` does not, so an
+  unguarded composable would try to `fetch()` the WASM binary mid-render and
+  take down every Nuxt page using it. Generation is deferred to the client;
+  server-rendered QR codes come from calling the synchronous Node API in a
+  server route instead.
+- **Fuzzing.** `cargo-fuzz` targets for both decode entry points, a seed corpus
+  generated from real encoder output, and a weekly CI workflow. The corpus has
+  to start from real images: random bytes never get past
+  `image::guess_format`, so an unseeded run explores nothing. `npm run fuzz`
+  runs it locally.
+- **A compatibility policy** in the README: what counts as public API, what each
+  version bump means, the MSRV rule, and the deliberate omissions — colour,
+  `decode`'s return shape, PNG logos — written down as decisions rather than
+  left as gaps.
+- **Browser tests run headless in CI.** The 14 assertions in
+  `tests/browser.html` cover what no Node test can reach — WASM over HTTP,
+  canvas round trips, object-URL lifetimes, a real `MediaStream`, Vue in a
+  mounted app — and until now ran only when someone opened the page.
+- **CI covers Windows and the declared MSRV** — which caught a lie on its first
+  run. `rust-version` claimed 1.85, but `image` requires 1.88, so the decode
+  feature could never have built there. Corrected to **1.88** and now enforced
+  against every feature set on every push.
+- `ROADMAP.md` — what has to be true before 1.0, and why.
+- `examples/decode_limits.rs` — the reproduction for the memory issue, kept as a
+  runnable description of the threat model.
+
 ## [0.6.0] - 2026-08-23
 
 Everything from 0.5 still works — see [MIGRATION.md](./MIGRATION.md). The one
@@ -45,33 +214,33 @@ the image you get back.
 ### Added
 
 - **Centre logo support.** `logoSpace` (a percentage of the symbol width) blanks
-  a centred square; `generateSvg` also takes a `logo` href and draws it for you.
+  a centred square; `qrSvg` also takes a `logo` href and draws it for you.
   The request is rejected with `LOGO_SPACE_TOO_LARGE` if it would spend more of
   the error-correction budget than the level can spare, or if the square would
   reach the finder patterns.
-- **Camera scanning** — `@wirunrom/hqr-generate/scanner` (`createScanner`,
-  `listCameras`) and the `useQrScanner` React hook. Frames come from
+- **Camera scanning** — `barqr/scanner` (`createScanner`,
+  `listCameras`) and the `useScanner` React hook. Frames come from
   `requestVideoFrameCallback` where available, downscaled to 640 px, throttled,
   and de-duplicated. Plain JS, so it adds nothing to the WASM binaries.
-- **Payload builders** — `@wirunrom/hqr-generate/payload`: `wifi`, `mecard`,
+- **Payload builders** — `barqr/payload`: `wifi`, `mecard`,
   `vcard`, `mailto`, `sms`, `tel`, `geo`, `otpauth`, and `promptpay` (Thai
   EMVCo merchant-presented QR, with a CRC-16/CCITT-FALSE checksum). Each escapes
   its own separators — the failure mode otherwise is a code that scans fine and
   then does nothing.
-- `generateMany(texts, opts)` — encode a batch in one crossing of the JS/WASM
+- `qrMany(texts, opts)` — encode a batch in one crossing of the JS/WASM
   boundary. Errors carry the failing `index`.
 - `decodeAll(input)` — every code in the image, each with its pixel corners
   (`[top-left, top-right, bottom-right, bottom-left]`), version and ECC level.
 - `sizeMode: 'exact' | 'fit'`.
-- `generateModules(text, opts)` — the raw module grid
+- `qrModules(text, opts)` — the raw module grid
   (`{ n, margin, scale, size, origin, version, dark }`) for rendering to canvas,
   inline `<svg>`, PDF or native.
-- `useGenerateModules()` React hook.
+- `useQrModules()` React hook.
 - `ready({ decoder })` to preload WASM before the first render.
-- camelCase names (`generatePng`, `generateSvg`, `generateModules`); the 0.5
+- camelCase names (`qrPng`, `qrSvg`, `qrModules`); the 0.5
   snake_case names remain as aliases.
-- `@wirunrom/hqr-generate/node` subpath export.
-- Rust convenience helpers `hqr_generate::png()` / `svg()`, and `GenerateOptions`
+- `barqr/node` subpath export.
+- Rust convenience helpers `barqr::png()` / `svg()`, and `GenerateOptions`
   replacing the positional `(text, size, margin, ecc)` signature. Rust also gains
   `decode_all`, `Corner`, and `render_svg_modules_with_logo`.
 
@@ -135,8 +304,8 @@ End-to-end QR generation is now ~9.5× faster. On Apple Silicon (release + LTO) 
 
 - `generate(text)` no longer throws when called without an `options` argument — defaults (`size: 320`, `margin: 4`, `ecc: 'Q'`) are now applied in the JS shim.
 - `ecc` option (`'L' | 'M' | 'Q' | 'H'`) is now correctly translated to the underlying `u8` before crossing the WASM boundary. Previously, all values silently fell back to `Q`.
-- `useGenerate` / `useGenerateSvg` no longer re-run WASM on every React render when callers inline their `opts` object — effect deps are now the primitive option fields.
-- `useGenerate` now passes the `Uint8Array` directly to `new Blob([…])`, removing an unnecessary `ArrayBuffer` slice copy.
+- `useQr` / `useQrSvg` no longer re-run WASM on every React render when callers inline their `opts` object — effect deps are now the primitive option fields.
+- `useQr` now passes the `Uint8Array` directly to `new Blob([…])`, removing an unnecessary `ArrayBuffer` slice copy.
 
 ### Added
 

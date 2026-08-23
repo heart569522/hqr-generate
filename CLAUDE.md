@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-`@wirunrom/hqr-generate` is a QR code generator and decoder with a Rust core compiled to WebAssembly, plus thin JS/React wrappers. Core philosophy: **binary-first** — core APIs return raw `Uint8Array` (PNG) or `string` (SVG); Base64/Data URL conversion is pushed to the UI layer.
+`barqr` is a QR code generator and decoder with a Rust core compiled to WebAssembly, plus thin JS/React wrappers. Core philosophy: **binary-first** — core APIs return raw `Uint8Array` (PNG) or `string` (SVG); Base64/Data URL conversion is pushed to the UI layer.
 
 ## Build & Dev Commands
 
@@ -14,7 +14,8 @@ Building requires `wasm-pack` (and a Rust toolchain with `wasm32-unknown-unknown
 - `npm run build:wasm` — the four `wasm-pack` builds, then `scripts/finalize-pkg.mjs`
 - `npm run build:react` — `tsc -p tsconfig.react.json` (compiles `react-src/` → `react/`)
 - `npm test` — `cargo test --features decode` + `node --test tests/node/*.test.mjs`
-- `npm run lint` — `cargo fmt --check` + `cargo clippy -D warnings`
+- `npm run lint` — `cargo fmt --check` + clippy on the native target
+- `npm run lint:all` — the above **plus clippy on each wasm feature set separately**. Run this before pushing: a helper used by two features but not a third is dead code only in that third build, and `cargo check` will not tell you — only clippy with `-D warnings`, per feature set, will.
 - `npm run size` — bundle size report; **exits non-zero if a binary exceeds its budget**
 - `npm run bench` — criterion benchmarks (`benches/generate.rs`)
 - `npm run clean` — removes `pkg/` and `react/`
@@ -29,20 +30,32 @@ Publishing: tag-triggered via `.github/workflows/publish.yml`, authenticated by 
 
 CI and publish both run Node 24: npm 11.5.1+ is what trusted publishing needs, and the publish job re-checks that at runtime rather than trusting the runner image.
 
+### Renaming the package
+
+`node scripts/rename.mjs --npm <name> [--crate <name>] [--repo <owner/repo>] [--dry-run]`
+
+The name lives in 23 files for npm alone, 39 once the crate and repo are included — README prose, `.d.ts` files, both framework fixtures, the wasm glue filenames, the size budget. Done by hand you ship a package whose own docs import something that does not exist.
+
+Two things are left alone deliberately. `.github/release-notes/v0.*.md` describe releases that already happened under the old name; rewriting them would put the repo out of step with what is published. And `MIGRATION.md` plus `release-notes/v1.0.0.md` are *about* the rename, so they carry a `barqr` placeholder that gets filled, rather than a name that gets replaced — which is also why the README never spells the old name out.
+
+The script prints what it cannot do: updating npm's Trusted Publisher (bound to `owner/repo/publish.yml`, so **renaming the repo breaks publishing until it matches**), `npm deprecate` on the old package (**never** unpublish — that breaks lockfiles), and the GitHub repo rename itself.
+
 **Before tagging a release, write `.github/release-notes/vX.Y.Z.md`.** Its `# ` heading becomes the release title and the rest becomes the body; without it the workflow falls back to auto-generated notes and says so in a warning. Links in that file must be absolute and pinned to the tag — GitHub does not resolve relative links in release bodies. Manual escape hatches: `publish:npm`, `publish:github`, `release:test`.
 
 ## Architecture
 
-### Four WASM binaries, not one
+### Six WASM binaries, not one
 
 The encoder and decoder are built separately and shipped as separate `.wasm` files:
 
-| out-dir             | features         | target   | ~gzip  |
-| ------------------- | ---------------- | -------- | ------ |
-| `pkg/web`           | `wasm,generate`  | web      | 85 KB  |
-| `pkg/web-decode`    | `wasm,decode`    | web      | 280 KB |
-| `pkg/nodejs`        | `wasm,generate`  | nodejs   | 85 KB  |
-| `pkg/nodejs-decode` | `wasm,decode`    | nodejs   | 280 KB |
+| out-dir                 | features                | target | ~gzip  |
+| ----------------------- | ----------------------- | ------ | ------ |
+| `pkg/web`               | `wasm,generate,barcode` | web    | 100 KB |
+| `pkg/web-decode`        | `wasm,decode`           | web    | 267 KB |
+| `pkg/web-decode-any`    | `wasm,decode-any`       | web    | 598 KB |
+| `pkg/nodejs*`           | the same three          | nodejs | —      |
+
+Three roles, two targets. The decoders are **not** alternatives to pick between at build time — both ship, and the JS layer loads whichever the caller's function implies. `decode` uses `rqrr` and reads QR only; `decodeAny` uses `rxing` and reads everything, at more than twice the size. Anyone reading only QR must never fetch the second one.
 
 The decoder is loaded lazily (`await import(...)` on web, `createRequire` on Node) the first time `decode` is called, so generate-only consumers never pay for it. **Do not merge the two back into one binary**, and do not add a dependency to the `generate` feature without checking `npm run size` — that budget is what keeps this honest (0.5.0 shipped 1.4 MB by accident).
 
@@ -66,6 +79,9 @@ The pipeline is split into two layers to keep fast paths cheap:
 
 Other files:
 - `src/core/types.rs` — `Ecc`, `SizeMode`, `GenerateOptions`, `QrBitmap`, `QrModules`, `DecodeInput`.
+- `src/core/barcode.rs` — behind `barcode`. `barcoders` returns a flat `Vec<u8>` of 0/1 per module, which maps straight onto the existing render approach. Each symbology **rejects** data it cannot represent rather than mangling it, and EAN computes its check digit from 12 digits — `BarcodeModules::text` carries what was actually encoded, so the digits printed under the bars always agree with the bars.
+- `src/render/barcode.rs` — one row of bars stretched to a height. The scanline is built once and copied down. SVG can print the human-readable data; PNG cannot, because text needs a font and a font is larger than everything else here put together.
+- `src/core/decode_any/` — behind `decode-any`. Two decoder behaviours are correct and surprising, and are pinned by `tests/barcode_roundtrip.rs`: UPC-A *is* a zero-prefixed EAN-13, so encoding one and decoding the other is right; and Codabar's `A`–`D` start/stop characters are delimiters, so they come back stripped.
 - `src/core/decode/` — behind `decode`. `impl_.rs` computes BT.601 luminance inline inside the `rqrr::PreparedImage::prepare_from_greyscale` closure (integer shifts, no intermediate grayscale `Vec`), and distinguishes "no symbol" (`NotFound`) from "symbol found, unreadable" (`Corrupt`).
 - `src/error.rs` — `GenerateError` / `DecodeError`, each with a stable `.code()` string that becomes `err.code` in JS. Never leak `{:?}` of a Rust enum to JS.
 - `src/wasm.rs` — `#[wasm_bindgen]` entry points, each gated on its feature. Errors cross as `js_sys::Error` with `code` set via `Reflect`. `generate_modules` returns a **plain JS object**, not a wasm-bindgen class, so callers have nothing to `.free()`.
@@ -73,13 +89,15 @@ Other files:
 - `ecc`, `size_mode` and `logo_space` cross the FFI boundary as `u8` (`0=L,1=M,2=Q,3=H`; `0=exact,1=fit`). The JS layer maps the strings — **never pass the string straight to WASM** (that was a real bug that silently forced every code to ECC Q).
 
 ### Cargo features
-- `generate` (default) — `fast_qr` + `png`, encoder and renderers.
-- `decode` — `image` + `rqrr`.
-- `wasm` — `wasm-bindgen` + `js-sys`, exposes `src/wasm.rs` for whichever of the two above is enabled.
+- `generate` (default) — `fast_qr` + `png`, QR encoding and the renderers.
+- `barcode` — implies `generate`; adds `barcoders` for nine 1D symbologies. Costs ~15 KB gzipped for all nine, because a 1D symbology is lookup tables and bit patterns next to QR's Reed-Solomon and masking.
+- `decode` — `image` + `rqrr`. QR only.
+- `decode-any` — `image` + `rxing`, every symbology. `rxing` is trimmed hard (`default-features = false`): its defaults add result-content parsing, serde, the encoder side and its own image integration, none of which this crate calls, and dropping them took the module from 852 KB to 598 KB gzipped. **`wasm_support` must stay on** — rxing reaches for `chrono::Utc::now()`, which has no clock on `wasm32-unknown-unknown`, and with `panic = "abort"` that surfaces as a bare `RuntimeError: unreachable` with nothing to go on.
+- `wasm` — `wasm-bindgen` + `js-sys`, exposing `src/wasm.rs` for whichever of the above are enabled.
 
-All three combinations must compile independently; CI checks the matrix.
+Every combination must compile **and lint** independently. `cargo check` is not enough: a helper used by two features but not a third is dead code only in that third build, and only clippy with `-D warnings`, per feature set, reports it. Run `npm run lint:all`, which is exactly what CI runs.
 
-**The Node binaries are inlined as base64 by `scripts/finalize-pkg.mjs`, and must stay that way.** wasm-pack's Node glue locates its binary with `readFileSync(__dirname + "/hqr_generate_bg.wasm")`, and any bundler that pulls that CJS module into its own output rewrites `__dirname`, so the read fails with `ENOENT` at import time — Next.js server components, route handlers, serverless bundles.
+**The Node binaries are inlined as base64 by `scripts/finalize-pkg.mjs`, and must stay that way.** wasm-pack's Node glue locates its binary with `readFileSync(__dirname + "/barqr_bg.wasm")`, and any bundler that pulls that CJS module into its own output rewrites `__dirname`, so the read fails with `ENOENT` at import time — Next.js server components, route handlers, serverless bundles.
 
 The usual workaround for WASM packages, `serverExternalPackages`, was tried and is **worse**: an externalized copy of `react/*.js` resolves its own `react`, so every client component using our hooks dies during SSR with `Cannot read properties of null (reading 'useRef')`. Both failures are silent in unit tests and only show up in a real framework, which is what `tests/my-app` exists to catch.
 
@@ -95,6 +113,15 @@ The usual workaround for WASM packages, `serverExternalPackages`, was tried and 
 - `package.json` `exports`: **`browser` and `node` must both come before `default`.** 0.5 listed `import` first, which made Node ESM resolve to the fetch-based web build. `tests/node/resolution.test.mjs` asserts this ordering.
 - `scripts/finalize-pkg.mjs` writes `{"type":"commonjs"}` / `{"type":"module"}` into each `pkg/*` directory. Do not just delete wasm-pack's `package.json` — the repo root is `"type": "module"`, so the CJS glue would be parsed as ESM.
 
+### Vue layer (`vue-src/` → `vue/`)
+
+Compiled by `tsconfig.vue.json`. `vue` is an optional peer dependency (>=3.3, for `toValue`).
+
+- **`watchEffect` runs during SSR**, unlike React's `useEffect`. Every composable is guarded by `isBrowser` in `vue-src/shared.ts`; without it a Nuxt page would `fetch()` the WASM binary while rendering on the server. `tests/node/vue-ssr.test.mjs` renders each composable through `vue/server-renderer` to keep that honest.
+- Options are read through `toValue` **inside** the effect, which is what makes the effect track each of them. Reading them outside would silently freeze the composable on its first values.
+- `useScanner` returns a ref named `video` so `<video ref="video">` binds by convention, and reads `opts.onResult` through the options object rather than capturing it — replacing the callback must not restart the camera.
+- The compiled output imports a bare `vue` specifier. Bundlers resolve it; `tests/browser.html` needs an import map.
+
 ### React layer (`react-src/` → `react/`)
 
 Compiled separately via `tsconfig.react.json`. `react` is an optional peer dependency.
@@ -103,7 +130,7 @@ Compiled separately via `tsconfig.react.json`. `react` is an optional peer depen
 - Hooks pass `Uint8Array` directly to `new Blob([result as BlobPart], ...)` — no `ArrayBuffer` slice copy. The cast is for TS's `SharedArrayBuffer` variance only.
 - Object URLs are revoked in effect cleanup.
 - `useDecode` depends on `input` by identity **on purpose** — a camera feed produces frames with identical dimensions, so any shallow signature would decode only the first one.
-- `useQrScanner` holds `onResult` in a ref rather than a dep, so a fresh closure from the parent does not tear the camera down and re-request it on every render.
+- `useScanner` holds `onResult` in a ref rather than a dep, so a fresh closure from the parent does not tear the camera down and re-request it on every render.
 
 ## Conventions
 

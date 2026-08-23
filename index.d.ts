@@ -1,5 +1,5 @@
 /* =========================================================
- * @wirunrom/hqr-generate — browser / bundler types
+ * barqr — browser / bundler types
  *
  * Everything here is async: the browser build loads WASM lazily.
  * Node gets synchronous signatures from `index.node.d.ts`, selected
@@ -95,6 +95,112 @@ export interface QrModules {
   logo: { x: number; y: number; size: number; modules: number } | null;
 }
 
+/* =========================================================
+ * Barcodes (1D)
+ * ======================================================= */
+
+/** The 1D symbologies this package can produce. */
+export type BarcodeFormat =
+  | "code128"
+  | "code39"
+  | "code39-checksum"
+  | "code93"
+  | "code11"
+  | "codabar"
+  | "ean13"
+  | "ean8"
+  | "itf";
+
+export interface BarcodeOptions {
+  /**
+   * Which symbology to encode. Each accepts a different character set, and
+   * rejects what it cannot represent rather than mangling it.
+   *
+   * @default "code128"
+   */
+  format?: BarcodeFormat;
+  /**
+   * Pixels per narrow bar. Whole numbers only — a fractional bar width is the
+   * classic way to produce a barcode scanners refuse.
+   *
+   * @default 2
+   */
+  moduleWidth?: number;
+  /**
+   * Bar height in pixels. Unlike QR there is no square to fit: the width comes
+   * from the data.
+   *
+   * @default 80
+   */
+  height?: number;
+  /**
+   * Quiet zone either side, in modules. The spec asks for 10; scanners use it
+   * to find where the code begins.
+   *
+   * @default 10
+   */
+  quiet?: number;
+}
+
+export interface BarcodeSvgOptions extends BarcodeOptions {
+  /**
+   * Print the data under the bars. Defaults to what the symbology
+   * conventionally does — EAN and UPC show it, Code 128 does not.
+   */
+  text?: boolean;
+}
+
+/** A barcode before rasterization. */
+export interface BarcodeModules {
+  /** One entry per module, left to right. 1 is a bar. */
+  bars: Uint8Array;
+  moduleWidth: number;
+  height: number;
+  quiet: number;
+  /** Pixel offset of the first module. */
+  origin: number;
+  /** Total image width in px, quiet zones included. */
+  width: number;
+  /**
+   * The data as encoded, including any check digit computed for you — which is
+   * what belongs under the bars.
+   */
+  text: string;
+}
+
+/** A symbology `decodeAny` can recognise. */
+export type DecodedFormat =
+  | "qr"
+  | "aztec"
+  | "datamatrix"
+  | "pdf417"
+  | "code128"
+  | "code39"
+  | "code93"
+  | "codabar"
+  | "ean13"
+  | "ean8"
+  | "upca"
+  | "upce"
+  | "itf"
+  | "other";
+
+/** One symbol found by {@link decodeAnyAll}. */
+export interface DecodedSymbol {
+  text: string;
+  /**
+   * The symbology that was recognised — which is not always the one you
+   * encoded: UPC-A *is* a zero-prefixed EAN-13, and a decoder is entitled to
+   * report either.
+   */
+  format: DecodedFormat;
+  /**
+   * Where the symbol sits in the source image. 1D symbologies report the two
+   * ends of the bar row; 2D report three or four corners.
+   */
+  points: { x: number; y: number }[];
+}
+
 /** One decoded QR code, located in the source image. */
 export interface DecodedQr {
   text: string;
@@ -124,11 +230,13 @@ export type HqrErrorCode =
   | "INVALID_MARGIN"
   | "INVALID_OPTION"
   | "LOGO_SPACE_TOO_LARGE"
+  | "INVALID_BARCODE_DATA"
   | "ENCODE_FAILED"
   | "PNG_FAILED"
   | "QR_NOT_FOUND"
   | "INVALID_IMAGE"
   | "UNSUPPORTED_FORMAT"
+  | "IMAGE_TOO_LARGE"
   | "QR_CORRUPT";
 
 /* =========================================================
@@ -136,24 +244,34 @@ export type HqrErrorCode =
  * ======================================================= */
 
 /** Generate a QR code as PNG bytes (1-bit grayscale). */
-export function generatePng(text: string, opts?: GenerateOptions): Promise<Uint8Array>;
+export function qrPng(text: string, opts?: GenerateOptions): Promise<Uint8Array>;
 
 /** Generate a QR code as SVG markup (a single `<path>`). */
-export function generateSvg(text: string, opts?: SvgOptions): Promise<string>;
+export function qrSvg(text: string, opts?: SvgOptions): Promise<string>;
+
+/** Generate a 1D barcode as PNG bytes. Digits are not drawn — see {@link barcodeSvg}. */
+export function barcodePng(text: string, opts?: BarcodeOptions): Promise<Uint8Array>;
+
+/** Generate a 1D barcode as SVG, with the data underneath where conventional. */
+export function barcodeSvg(text: string, opts?: BarcodeSvgOptions): Promise<string>;
+
+/** The bar pattern, for drawing the barcode yourself. */
+export function barcodeModules(
+  text: string,
+  opts?: BarcodeOptions,
+): Promise<BarcodeModules>;
 
 /**
  * Encode a batch in one crossing of the JS/WASM boundary — cheaper than a loop
- * over {@link generatePng} when rendering many codes at once.
+ * over {@link qrPng} when rendering many codes at once.
  *
  * Fails on the first bad entry; the thrown error carries an `index` property.
  */
-export function generateMany(texts: string[], opts?: GenerateOptions): Promise<Uint8Array[]>;
+export function qrMany(texts: string[], opts?: GenerateOptions): Promise<Uint8Array[]>;
 
 /** The raw module grid, for rendering the code yourself. */
-export function generateModules(text: string, opts?: GenerateOptions): Promise<QrModules>;
+export function qrModules(text: string, opts?: GenerateOptions): Promise<QrModules>;
 
-/** Alias of {@link generatePng}. */
-export function generate(text: string, opts?: GenerateOptions): Promise<Uint8Array>;
 
 /* =========================================================
  * Decode
@@ -171,6 +289,18 @@ export function decode(input: Uint8Array | ImageData): Promise<string>;
  */
 export function decodeAll(input: Uint8Array | ImageData): Promise<DecodedQr[]>;
 
+/**
+ * Read a symbol of **any** supported symbology — QR, DataMatrix, Aztec, PDF417
+ * and the 1D formats.
+ *
+ * Loads a separate, larger WASM module on first use: roughly twice the QR-only
+ * decoder. If QR is all you read, {@link decode} costs a third as much.
+ */
+export function decodeAny(input: Uint8Array | ImageData): Promise<string>;
+
+/** Every symbol in the image, of any supported symbology, with its position. */
+export function decodeAnyAll(input: Uint8Array | ImageData): Promise<DecodedSymbol[]>;
+
 /* =========================================================
  * Lifecycle
  * ======================================================= */
@@ -179,15 +309,5 @@ export function decodeAll(input: Uint8Array | ImageData): Promise<DecodedQr[]>;
  * Preload the WASM modules so the first render does not pay for the download.
  * Safe to call repeatedly.
  */
-export function ready(opts?: { decoder?: boolean }): Promise<void>;
+export function ready(opts?: { decoder?: boolean; anyDecoder?: boolean }): Promise<void>;
 
-/* =========================================================
- * Deprecated aliases (0.5.x names)
- * ======================================================= */
-
-/** @deprecated use {@link generatePng} */
-export function generate_png(text: string, opts?: GenerateOptions): Promise<Uint8Array>;
-/** @deprecated use {@link generateSvg} */
-export function generate_svg(text: string, opts?: GenerateOptions): Promise<string>;
-/** @deprecated use {@link generateModules} */
-export function generate_modules(text: string, opts?: GenerateOptions): Promise<QrModules>;

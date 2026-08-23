@@ -1,4 +1,138 @@
-# Migrating 0.5.x → 0.6.0
+# Migration
+
+- [0.6.x → 1.0.0](#migrating-06x--100) — the package was renamed
+- [0.5.x → 0.6.0](#migrating-05x--060)
+
+---
+
+## Migrating 0.6.x → 1.0.0
+
+**The package moved to `barqr`.** `@wirunrom/hqr-generate` is deprecated
+and will not get further releases.
+
+```bash
+npm uninstall @wirunrom/hqr-generate
+npm i barqr
+```
+
+Then update your imports. Nothing else about them changes:
+
+```diff
+- import { qrPng } from "@wirunrom/hqr-generate";
++ import { qrPng } from "barqr";
+```
+
+Every subpath keeps its name: `/react`, `/vue`, `/payload`, `/scanner`,
+`/web`, `/node`.
+
+### 1. Every function is renamed
+
+The package does QR codes *and* 1D barcodes now, so `generate*` meaning "QR"
+was an accident of history. Each name says which family it belongs to:
+
+```diff
+- generate(text, opts)            // removed: generate what?
+- generate_png(text, opts)
+- generatePng(text, opts)
++ qrPng(text, opts)
+
+- generate_svg / generateSvg      →  qrSvg
+- generate_modules / generateModules → qrModules
+- generateMany                    →  qrMany
+```
+
+New alongside them: `barcodePng`, `barcodeSvg`, `barcodeModules`.
+`decode`, `decodeAll` and `ready` are unchanged — they were never QR-specific.
+
+Hooks and composables follow the same rule:
+
+```diff
+- useGenerate        →  useQr
+- useGenerateSvg     →  useQrSvg
+- useGenerateModules →  useQrModules
+- useQrScanner       →  useScanner    // it will read barcodes too
+```
+
+`useBarcode`, `useBarcodeSvg` and `useBarcodeModules` are new. `useDecode` is
+unchanged.
+
+Every option keeps its name: `size`, `margin`, `ecc`, `sizeMode`, `logoSpace`,
+`logo`. Only the function names moved.
+
+### 2. Very large images are refused
+
+Decoding now rejects anything over **40 megapixels** with a new
+`IMAGE_TOO_LARGE` code, before allocating for it.
+
+This closes a real hole rather than tightening a limit for its own sake: a
+1.2 MB PNG declaring 16000×16000 made 0.6 allocate **976 MB** and spend 2.2 s
+of CPU deciding there was no QR code in it. If you decode images a user
+uploaded, 0.6 gave them a way to exhaust your memory from a small file.
+
+40 MP is more than any phone camera and most flatbed scans produce. If you were
+feeding the decoder something larger, downscale first — a QR code needs a few
+hundred pixels across to read, not tens of thousands.
+
+```js
+if (err.code === "IMAGE_TOO_LARGE") {
+  // downscale through a canvas and retry
+}
+```
+
+### 3. Barcodes and a second decoder are new
+
+Nothing to migrate — these did not exist in 0.6:
+
+```js
+await barcodePng("SKU-0001", { format: "code128" });
+await barcodeSvg("012345678901", { format: "ean13" });
+
+await decodeAny(image);     // QR, DataMatrix, Aztec, PDF417 and the 1D formats
+await decodeAnyAll(image);  // …every symbol, each with its format and position
+```
+
+`decodeAny` loads a **separate, larger** WASM module. If you only read QR codes,
+keep using `decode` — it is a third of the download and unchanged.
+
+The camera scanner takes `formats: "any"` to read barcodes too, and its results
+are now `{ text, format, points }` across both decoders. If you were reading
+`result.corners` from the scanner, that field is now `points`; `decodeAll` still
+returns `corners`.
+
+Hooks for all of it: `useBarcode`, `useBarcodeSvg`, `useBarcodeModules` and
+`useDecodeAny`, in both the React and Vue layers.
+
+### 4. Vue and Nuxt are supported
+
+New, so nothing to migrate — but if you had written your own composables around
+the core API, `barqr/vue` now ships five of them, SSR-safe for Nuxt.
+
+### 5. Rust crate
+
+Only if you depend on the crate rather than the npm package:
+
+- **MSRV is now 1.88**, raised from a declared 1.85 that was never true — the
+  `image` crate has required 1.88 for some time, so `--features decode` could
+  not have built on 1.85 at all.
+- `GenerateError` and `DecodeError` are `#[non_exhaustive]`. Add a `_` arm.
+- `DecodeError::ImageTooLarge` is new.
+- `render_svg(&QrBitmap)` was removed. It emitted one `<rect>` per module —
+  143 KB where `render_svg_modules` produces 5.2 KB for the same code. The rest
+  of the 8-bit API (`QrBitmap`, `rasterize`, `render_png`) stays.
+- `rqrr` moved 0.7 → 0.10, which fixes a panic reachable from `decode` with
+  crafted input. On `wasm32-unknown-unknown` panics abort and cannot be caught,
+  so that one was fatal to the whole WASM instance.
+
+### Nothing to do about
+
+Output bytes differ slightly from 0.6 — the decoder converts to luma instead of
+RGBA, and dependencies moved. The compatibility policy is explicit that exact
+bytes are not API: what is guaranteed is that output decodes to what you
+encoded, at the size you asked for.
+
+---
+
+## Migrating 0.5.x → 0.6.0
 
 **Short version: existing code keeps working.** Every 0.5 export still exists
 with the same name and the same signature, and no import path changed. What
@@ -58,11 +192,11 @@ Ask for the largest whole-module image that fits, and give it the size 0.5
 would have produced:
 
 ```js
-import { generateModules, generatePng } from "@wirunrom/hqr-generate";
+import { qrModules, qrPng } from "@wirunrom/hqr-generate";
 
-const { n } = await generateModules(text, { ecc: "Q" });
+const { n } = await qrModules(text, { ecc: "Q" });
 const legacySize = (n + 2 * 4) * Math.max(1, Math.floor(320 / n)); // what 0.5 returned
-const png = await generatePng(text, { size: legacySize, sizeMode: "fit" });
+const png = await qrPng(text, { size: legacySize, sizeMode: "fit" });
 ```
 
 `sizeMode: "fit"` also stands on its own: it returns the largest whole-module
@@ -141,18 +275,18 @@ camelCase names. They still work; the camelCase spelling is preferred.
 ## New in 0.6 (nothing to migrate, just available)
 
 - `sizeMode: "exact" | "fit"`.
-- `logoSpace` reserves a centre square for a logo, and `generateSvg` takes a
+- `logoSpace` reserves a centre square for a logo, and `qrSvg` takes a
   `logo` href to draw into it. Rejected with `LOGO_SPACE_TOO_LARGE` when error
   correction could not cover the loss.
-- `generateMany(texts, opts)` — batch encoding in one WASM call.
+- `qrMany(texts, opts)` — batch encoding in one WASM call.
 - `decodeAll(input)` — every code in the image, with pixel corners.
 - `@wirunrom/hqr-generate/payload` — `wifi`, `mecard`, `vcard`, `mailto`, `sms`,
   `tel`, `geo`, `otpauth`, `promptpay`.
 - `@wirunrom/hqr-generate/scanner` — `createScanner`, `listCameras`, plus the
-  `useQrScanner` React hook.
-- `generateModules(text, opts)` → `{ n, margin, scale, size, origin, version, dark, logo }`,
+  `useScanner` React hook.
+- `qrModules(text, opts)` → `{ n, margin, scale, size, origin, version, dark, logo }`,
   the raw grid, for rendering to canvas / inline `<svg>` / PDF yourself.
-- `useGenerateModules()` in `@wirunrom/hqr-generate/react`.
+- `useQrModules()` in `@wirunrom/hqr-generate/react`.
 - `ready({ decoder })` to preload the WASM up front.
 - The decoder is a **separate WASM module**, loaded only when `decode` is first
   called. A page that only generates QR codes downloads 85 KB gzipped instead of

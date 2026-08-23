@@ -2,13 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>hqr-generate — browser smoke test</title>
+    <title>barqr — browser smoke test</title>
     <style>
       body { font: 14px/1.6 ui-monospace, monospace; margin: 2rem; }
       .pass { color: #0a7d32; } .fail { color: #c0261a; }
       #summary { font-size: 1.2rem; font-weight: 700; margin-bottom: 1rem; }
       img, svg { image-rendering: pixelated; vertical-align: middle; }
     </style>
+    <!-- The compiled composables import a bare `vue` specifier, which every
+         bundler resolves but native ESM does not. An import map stands in. -->
+    <script type="importmap">
+      { "imports": { "vue": "/node_modules/vue/dist/vue.esm-browser.prod.js" } }
+    </script>
   </head>
   <body>
     <div id="summary">running…</div>
@@ -22,12 +27,18 @@
       import {
         decode,
         decodeAll,
-        generate,
-        generateMany,
-        generateModules,
-        generatePng,
-        generateSvg,
+        decodeAny,
+        decodeAnyAll,
+        qrMany,
+        qrModules,
+        qrPng,
+        qrSvg,
         ready,
+      } from "../index.web.js";
+      import {
+        barcodeModules,
+        barcodePng,
+        barcodeSvg,
       } from "../index.web.js";
       import { createScanner } from "../scanner.js";
       import { promptpay, wifi } from "../payload.js";
@@ -52,8 +63,8 @@
 
       await check("ready() resolves", () => ready());
 
-      await check("generate() with no options", async () => {
-        const bytes = await generate("https://example.com");
+      await check("qrPng() with no options", async () => {
+        const bytes = await qrPng("https://example.com");
         assert(bytes instanceof Uint8Array, "expected Uint8Array");
         const { width, height } = pngSize(bytes);
         assert(width === 320 && height === 320, `got ${width}x${height}`);
@@ -61,20 +72,20 @@
 
       await check("size is exact", async () => {
         for (const size of [128, 256, 320, 500]) {
-          const { width } = pngSize(await generatePng("exact size", { size }));
+          const { width } = pngSize(await qrPng("exact size", { size }));
           assert(width === size, `asked ${size}, got ${width}`);
         }
       });
 
       await check("svg renders at the requested size", async () => {
-        const svg = await generateSvg("https://example.com", { size: 256 });
+        const svg = await qrSvg("https://example.com", { size: 256 });
         assert(svg.includes('width="256"'), "missing width");
         assert(svg.match(/<path/g).length === 1, "expected exactly one path");
         document.getElementById("preview").innerHTML = svg;
       });
 
       await check("module grid round-trips through canvas + decode", async () => {
-        const m = await generateModules("canvas round trip", { size: 240 });
+        const m = await qrModules("canvas round trip", { size: 240 });
         const canvas = document.createElement("canvas");
         canvas.width = canvas.height = m.size;
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -92,13 +103,13 @@
       });
 
       await check("decode() reads our own PNG bytes", async () => {
-        const bytes = await generatePng("png bytes round trip");
+        const bytes = await qrPng("png bytes round trip");
         const text = await decode(bytes);
         assert(text === "png bytes round trip", `decoded ${JSON.stringify(text)}`);
       });
 
       await check("PNG renders as an <img>", async () => {
-        const bytes = await generatePng("blob url", { size: 160 });
+        const bytes = await qrPng("blob url", { size: 160 });
         const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
         const img = new Image();
         await new Promise((res, rej) => {
@@ -125,9 +136,9 @@
         }
       };
 
-      await check("generateMany returns a batch in order", async () => {
+      await check("qrMany returns a batch in order", async () => {
         const texts = ["batch a", "batch b", "batch c"];
-        const batch = await generateMany(texts, { size: 160 });
+        const batch = await qrMany(texts, { size: 160 });
         assert(batch.length === 3, `got ${batch.length}`);
         for (let i = 0; i < texts.length; i++) {
           assert((await decode(batch[i])) === texts[i], `entry ${i} decoded wrong`);
@@ -136,10 +147,10 @@
 
       await check("logoSpace + logo renders and still decodes", async () => {
         const text = "https://example.com/logo-in-browser";
-        const bytes = await generatePng(text, { ecc: "H", logoSpace: 25, size: 400 });
+        const bytes = await qrPng(text, { ecc: "H", logoSpace: 25, size: 400 });
         assert((await decode(bytes)) === text, "code with a hole failed to decode");
 
-        const svg = await generateSvg(text, {
+        const svg = await qrSvg(text, {
           ecc: "H",
           logoSpace: 25,
           size: 400,
@@ -155,7 +166,7 @@
       });
 
       await check("decodeAll reports positions", async () => {
-        const results = await decodeAll(await generatePng("positioned", { size: 300 }));
+        const results = await decodeAll(await qrPng("positioned", { size: 300 }));
         assert(results.length === 1, `got ${results.length} results`);
         assert(results[0].text === "positioned", "wrong text");
         assert(results[0].corners.length === 4, "expected 4 corners");
@@ -163,16 +174,16 @@
 
       await check("payload builders produce scannable codes", async () => {
         const pp = promptpay({ target: "0812345678", amount: 120.5 });
-        assert((await decode(await generatePng(pp, { ecc: "M" }))) === pp, "promptpay round trip");
+        assert((await decode(await qrPng(pp, { ecc: "M" }))) === pp, "promptpay round trip");
 
         const net = wifi({ ssid: "Test; Net", password: 'p:a"ss' });
-        assert((await decode(await generatePng(net))) === net, "wifi round trip");
+        assert((await decode(await qrPng(net))) === net, "wifi round trip");
       });
 
       await check("scanner reads a live MediaStream", async () => {
         // No camera here, so a canvas stands in for one: captureStream() gives a
         // real MediaStream, which is what the scanner actually consumes.
-        const m = await generateModules("scanner works", { size: 400 });
+        const m = await qrModules("scanner works", { size: 400 });
         const canvas = document.createElement("canvas");
         canvas.width = canvas.height = m.size;
         const ctx = canvas.getContext("2d");
@@ -219,11 +230,13 @@
           });
 
           assert(result.text === "scanner works", `decoded ${JSON.stringify(result.text)}`);
-          assert(result.corners.length === 4, "expected corner positions");
+          // The scanner normalises both decoders onto one shape: `points`.
+          assert(result.points.length === 4, "expected corner positions");
+          assert(result.format === "qr", "reported " + result.format);
           // Corners come back in video coordinates, not the downscaled buffer.
           assert(
-            result.corners.every((c) => c.x >= 0 && c.x <= m.size + 1),
-            "corners were not scaled back to the source resolution",
+            result.points.every((p) => p.x >= 0 && p.x <= m.size + 1),
+            "positions were not scaled back to the source resolution",
           );
         } finally {
           painting = false;
@@ -239,14 +252,335 @@
         assert(video.srcObject === null, "scanner.stop() must release the stream");
       });
 
+      await check("vue composables work in a real app", async () => {
+        const { createApp, defineComponent, h, ref, nextTick } = await import("vue");
+        const { useQr, useQrModules, useQrSvg, useDecode } = await import(
+          "../vue/index.js"
+        );
+
+        const host = document.createElement("div");
+        document.body.append(host);
+
+        let api;
+        const App = defineComponent({
+          setup() {
+            const text = ref("https://example.com/vue");
+            const size = ref(240);
+            const gen = useQr(text, { size, ecc: "H" });
+            const svg = useQrSvg(text, {
+              size,
+              ecc: "H",
+              logoSpace: 20,
+              logo: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E",
+            });
+            const grid = useQrModules(text, { size });
+            // Feed the decoder whatever the generator just produced.
+            const source = ref(undefined);
+            const dec = useDecode(source);
+            api = { text, size, gen, svg, grid, dec, source };
+            return () => h("img", { src: gen.src.value ?? undefined, width: 120 });
+          },
+        });
+
+        const app = createApp(App);
+        app.mount(host);
+
+        const settle = async (probe) => {
+          for (let i = 0; i < 80; i++) {
+            await new Promise((r) => setTimeout(r, 50));
+            await nextTick();
+            if (probe()) return true;
+          }
+          return false;
+        };
+
+        assert(await settle(() => api.gen.src.value), "useQr never produced a src");
+        assert(api.gen.bytes.value instanceof Uint8Array, "bytes should be a Uint8Array");
+        assert(await settle(() => api.svg.svg.value), "useQrSvg never produced markup");
+        assert(api.svg.svg.value.includes("<image "), "logoSpace + logo should emit an <image>");
+        assert(await settle(() => api.grid.modules.value), "useQrModules produced no grid");
+        assert(api.gen.error.value == null, "unexpected error: " + api.gen.error.value);
+
+        // useDecode, fed the bytes useQr produced.
+        api.source.value = api.gen.bytes.value;
+        assert(await settle(() => api.dec.text.value), "useDecode never decoded");
+        assert(
+          api.dec.text.value === "https://example.com/vue",
+          "useDecode read " + JSON.stringify(api.dec.text.value),
+        );
+
+        // Reactivity: changing a ref must re-run every composable.
+        const before = api.gen.src.value;
+        const modulesBefore = api.grid.modules.value.n;
+        api.text.value = "a much longer payload that needs a bigger symbol than the first one";
+        assert(await settle(() => api.gen.src.value !== before), "changing the ref did not re-run");
+        assert(
+          api.grid.modules.value.n > modulesBefore,
+          "a longer payload should need more modules",
+        );
+
+        // Unmount must revoke the object URL.
+        const leaked = api.gen.src.value;
+        app.unmount();
+        host.remove();
+        let revoked = false;
+        try {
+          const r = await fetch(leaked);
+          revoked = !r.ok;
+        } catch {
+          revoked = true;
+        }
+        assert(revoked, "object URL should be revoked on unmount");
+      });
+
+      await check("vue useScanner drives a live MediaStream", async () => {
+        const { createApp, defineComponent, h, ref, nextTick } = await import("vue");
+        const { useScanner } = await import("../vue/index.js");
+
+        // Same canvas-as-camera trick, driven by setInterval so it keeps
+        // producing frames even when the page is not visible.
+        const m = await qrModules("vue scanner works", { size: 400 });
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = m.size;
+        const ctx = canvas.getContext("2d");
+        paint(ctx, m);
+        const timer = setInterval(() => paint(ctx, m), 100);
+
+        const stream = canvas.captureStream(15);
+        const realDevices = navigator.mediaDevices;
+        Object.defineProperty(navigator, "mediaDevices", {
+          configurable: true,
+          value: { ...realDevices, getUserMedia: async () => stream },
+        });
+
+        const host = document.createElement("div");
+        document.body.append(host);
+
+        let api;
+        const App = defineComponent({
+          setup() {
+            const scanner = useScanner({ scanIntervalMs: 60 });
+            api = scanner;
+            // The composable's `video` ref has to bind to the element.
+            return () => h("video", { ref: scanner.video, playsinline: true, muted: true });
+          },
+        });
+        const app = createApp(App);
+        app.mount(host);
+
+        try {
+          let settled = false;
+          for (let i = 0; i < 120; i++) {
+            await new Promise((r) => setTimeout(r, 100));
+            await nextTick();
+            if (api.result.value) {
+              settled = true;
+              break;
+            }
+          }
+          assert(settled, "scanner produced no result: " + String(api.error.value ?? ""));
+          assert(
+            api.result.value.text === "vue scanner works",
+            "decoded " + JSON.stringify(api.result.value.text),
+          );
+          assert(api.running.value === true, "running should be true while scanning");
+          assert(api.video.value instanceof HTMLVideoElement, "video ref should hold the element");
+        } finally {
+          clearInterval(timer);
+          app.unmount();
+          host.remove();
+          Object.defineProperty(navigator, "mediaDevices", {
+            configurable: true,
+            value: realDevices,
+          });
+        }
+
+        // Unmounting disposes the scope, which must release the camera.
+        assert(stream.getTracks().every((t) => t.readyState === "ended"), "camera not released");
+      });
+
+      await check("barcodes render across every symbology", async () => {
+        const cases = [
+          ["code128", "HELLO-123"],
+          ["code39", "HELLO 123"],
+          ["code93", "HELLO123"],
+          ["codabar", "A12345B"],
+          ["ean13", "012345678901"],
+          ["ean8", "1234567"],
+          ["itf", "12345678"],
+        ];
+
+        for (const [format, data] of cases) {
+          const m = await barcodeModules(data, { format, moduleWidth: 2, height: 60 });
+          assert(m.bars.length > 0, format + " produced no bars");
+
+          const svg = await barcodeSvg(data, { format, moduleWidth: 2, height: 60 });
+          const parsed = new DOMParser().parseFromString(svg, "image/svg+xml");
+          assert(!parsed.querySelector("parsererror"), format + ": browser rejected the SVG");
+
+          // The PNG has to be something the browser will actually decode.
+          const bytes = await barcodePng(data, { format, moduleWidth: 2, height: 60 });
+          const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+          const img = new Image();
+          await new Promise((res, rej) => {
+            img.onload = res;
+            img.onerror = () => rej(new Error(format + ": browser could not decode the PNG"));
+            img.src = url;
+          });
+          assert(img.naturalWidth === m.width, format + " width mismatch");
+          assert(img.naturalHeight === 60, format + " height mismatch");
+          URL.revokeObjectURL(url);
+        }
+
+        const ean = await barcodeSvg("012345678901", { format: "ean13" });
+        assert(ean.includes("0123456789012"), "EAN should print its computed check digit");
+        document.getElementById("preview").insertAdjacentHTML("beforeend", ean);
+      });
+
+      await check("vue barcode composables work in a real app", async () => {
+        const { createApp, defineComponent, h, ref, nextTick } = await import("vue");
+        const { useBarcode, useBarcodeSvg } = await import("../vue/index.js");
+
+        const host = document.createElement("div");
+        document.body.append(host);
+
+        let api;
+        const App = defineComponent({
+          setup() {
+            const sku = ref("SKU-0001");
+            const png = useBarcode(sku, { format: "code128", height: 50 });
+            const svg = useBarcodeSvg(sku, { format: "code128", text: true });
+            api = { sku, png, svg };
+            return () => h("img", { src: png.src.value ?? undefined });
+          },
+        });
+        const app = createApp(App);
+        app.mount(host);
+
+        const settle = async (probe) => {
+          for (let i = 0; i < 60; i++) {
+            await new Promise((r) => setTimeout(r, 50));
+            await nextTick();
+            if (probe()) return true;
+          }
+          return false;
+        };
+
+        assert(await settle(() => api.png.src.value), "useBarcode produced no src");
+        assert(await settle(() => api.svg.svg.value), "useBarcodeSvg produced no markup");
+        assert(api.svg.svg.value.includes("SKU-0001"), "text: true should print the data");
+
+        const before = api.png.src.value;
+        api.sku.value = "SKU-9999";
+        assert(await settle(() => api.png.src.value !== before), "changing the ref did not re-run");
+
+        const leaked = api.png.src.value;
+        app.unmount();
+        host.remove();
+        let revoked = false;
+        try {
+          revoked = !(await fetch(leaked)).ok;
+        } catch {
+          revoked = true;
+        }
+        assert(revoked, "object URL should be revoked on unmount");
+      });
+
+      await check("scanner reads barcodes when asked to", async () => {
+        // formats: "any" swaps in the larger decoder. Same fake camera, a
+        // barcode on the canvas instead of a QR code.
+        const m = await barcodeModules("SCAN-ME-123", {
+          format: "code128",
+          moduleWidth: 4,
+          height: 160,
+          quiet: 12,
+        });
+
+        const canvas = document.createElement("canvas");
+        canvas.width = m.width;
+        canvas.height = m.height;
+        const ctx = canvas.getContext("2d");
+        const paintBars = () => {
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, m.width, m.height);
+          ctx.fillStyle = "#000";
+          for (let i = 0; i < m.bars.length; i++) {
+            if (m.bars[i]) ctx.fillRect(m.origin + i * m.moduleWidth, 0, m.moduleWidth, m.height);
+          }
+        };
+        paintBars();
+        const timer = setInterval(paintBars, 100);
+
+        const stream = canvas.captureStream(15);
+        const realDevices = navigator.mediaDevices;
+        Object.defineProperty(navigator, "mediaDevices", {
+          configurable: true,
+          value: { ...realDevices, getUserMedia: async () => stream },
+        });
+
+        const video = document.createElement("video");
+        document.getElementById("preview").append(video);
+
+        let scanner;
+        try {
+          const result = await new Promise((resolve, reject) => {
+            const t = setTimeout(() => reject(new Error("no result within 20s")), 20000);
+            createScanner({
+              video,
+              formats: "any",
+              scanIntervalMs: 80,
+              onResult: (r) => {
+                clearTimeout(t);
+                resolve(r);
+              },
+              onError: (e) => {
+                clearTimeout(t);
+                reject(e);
+              },
+            }).then((s) => {
+              scanner = s;
+            }, reject);
+          });
+
+          assert(result.text === "SCAN-ME-123", "decoded " + JSON.stringify(result.text));
+          assert(result.format === "code128", "reported format " + result.format);
+          assert(result.points.length >= 2, "expected positions");
+        } finally {
+          clearInterval(timer);
+          scanner?.stop();
+          video.remove();
+          Object.defineProperty(navigator, "mediaDevices", {
+            configurable: true,
+            value: realDevices,
+          });
+        }
+      });
+
+      await check("decodeAny reads both families from bytes", async () => {
+        const bar = await barcodePng("MIXED-1", {
+          format: "code128",
+          moduleWidth: 3,
+          height: 100,
+          quiet: 12,
+        });
+        assert((await decodeAny(bar)) === "MIXED-1", "barcode did not decode");
+
+        const qr = await qrPng("https://example.com/mixed");
+        const [r] = await decodeAnyAll(qr);
+        assert(r.text === "https://example.com/mixed", "qr did not decode");
+        assert(r.format === "qr", "reported " + r.format);
+      });
+
       await check("errors carry a code", async () => {
         const cases = [
-          [() => generatePng(""), "EMPTY_TEXT"],
-          [() => generatePng("x", { ecc: "Z" }), "INVALID_OPTION"],
-          [() => generatePng("x".repeat(8000)), "PAYLOAD_TOO_LONG"],
+          [() => qrPng(""), "EMPTY_TEXT"],
+          [() => qrPng("x", { ecc: "Z" }), "INVALID_OPTION"],
+          [() => qrPng("x".repeat(8000)), "PAYLOAD_TOO_LONG"],
           [() => decode(new Uint8Array([1, 2, 3])), "INVALID_IMAGE"],
-          [() => generatePng("x", { ecc: "L", logoSpace: 30 }), "LOGO_SPACE_TOO_LARGE"],
-          [() => generateSvg("x", { logo: "data:," }), "INVALID_OPTION"],
+          [() => qrPng("x", { ecc: "L", logoSpace: 30 }), "LOGO_SPACE_TOO_LARGE"],
+          [() => qrSvg("x", { logo: "data:," }), "INVALID_OPTION"],
+          [() => barcodePng("abc", { format: "code39" }), "INVALID_BARCODE_DATA"],
+          [() => barcodePng("x", { format: "nope" }), "INVALID_OPTION"],
         ];
         for (const [fn, code] of cases) {
           let thrown;

@@ -1,7 +1,7 @@
 // Server component: the QR is rendered during SSR and arrives in the HTML.
 // No client JS, no WASM in the browser, no layout shift.
-import { decode, generateModules, generatePng, generateSvg } from "@wirunrom/hqr-generate";
-import { promptpay } from "@wirunrom/hqr-generate/payload";
+import { decode, qrModules, qrPng, qrSvg } from "barqr";
+import { promptpay } from "barqr/payload";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -10,13 +10,13 @@ export default function SsrPage() {
   const url = "https://example.com/rendered-on-the-server";
 
   // All synchronous — this is the Node build.
-  const svg = generateSvg(url, { size: 240 });
-  const grid = generateModules(url, { size: 240 });
+  const svg = qrSvg(url, { size: 240 });
+  const grid = qrModules(url, { size: 240 });
   const payload = promptpay({ target: "081-234-5678", amount: 199.5 });
-  const ppSvg = generateSvg(payload, { size: 240, ecc: "M" });
+  const ppSvg = qrSvg(payload, { size: 240, ecc: "M" });
 
   // Prove the decoder works server-side too (it loads lazily, on this call).
-  const roundTrip = decode(generatePng(url));
+  const roundTrip = decode(qrPng(url));
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 p-8 font-mono text-sm">

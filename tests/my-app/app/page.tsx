@@ -7,14 +7,14 @@ import { useEffect, useState } from "react";
 import {
   decode,
   decodeAll,
-  generateMany,
-  generateModules,
-  generatePng,
-  generateSvg,
+  qrMany,
+  qrModules,
+  qrPng,
+  qrSvg,
   ready,
-} from "@wirunrom/hqr-generate";
-import { promptpay, wifi } from "@wirunrom/hqr-generate/payload";
-import { useGenerate, useGenerateModules, useGenerateSvg } from "@wirunrom/hqr-generate/react";
+} from "barqr";
+import { promptpay, wifi } from "barqr/payload";
+import { useQr, useQrModules, useQrSvg } from "barqr/react";
 import Link from "next/link";
 
 const URL_PAYLOAD = "https://example.com/products/12345?utm_source=qr";
@@ -31,9 +31,9 @@ export default function Home() {
 
   // Hooks under test, with inline opts objects on purpose: if the dependency
   // tracking regresses, these re-run WASM on every render.
-  const png = useGenerate(URL_PAYLOAD, { size: 240 });
-  const svg = useGenerateSvg(URL_PAYLOAD, { size: 240 });
-  const grid = useGenerateModules(URL_PAYLOAD, { size: 240, ecc: "H", logoSpace: 24 });
+  const png = useQr(URL_PAYLOAD, { size: 240 });
+  const svg = useQrSvg(URL_PAYLOAD, { size: 240 });
+  const grid = useQrModules(URL_PAYLOAD, { size: 240, ecc: "H", logoSpace: 24 });
 
   useEffect(() => {
     let cancelled = false;
@@ -54,37 +54,37 @@ export default function Home() {
       });
 
       await run("size is exact", async () => {
-        const { width, height } = pngSize(await generatePng(URL_PAYLOAD, { size: 320 }));
+        const { width, height } = pngSize(await qrPng(URL_PAYLOAD, { size: 320 }));
         if (width !== 320 || height !== 320) throw new Error(`got ${width}x${height}`);
         return "320 x 320";
       });
 
       await run("round trip", async () => {
-        const text = await decode(await generatePng(URL_PAYLOAD));
+        const text = await decode(await qrPng(URL_PAYLOAD));
         if (text !== URL_PAYLOAD) throw new Error(`decoded ${text}`);
         return "decode matched";
       });
 
       await run("decodeAll positions", async () => {
-        const [first] = await decodeAll(await generatePng("positioned", { size: 300 }));
+        const [first] = await decodeAll(await qrPng("positioned", { size: 300 }));
         return `v${first.version}, ${first.corners.length} corners`;
       });
 
-      await run("generateMany", async () => {
-        const batch = await generateMany(["a", "b", "c"], { size: 120 });
+      await run("qrMany", async () => {
+        const batch = await qrMany(["a", "b", "c"], { size: 120 });
         return `${batch.length} codes, ${batch[0].length} bytes each`;
       });
 
       await run("logo hole still decodes", async () => {
-        const bytes = await generatePng(URL_PAYLOAD, { ecc: "H", logoSpace: 24, size: 400 });
+        const bytes = await qrPng(URL_PAYLOAD, { ecc: "H", logoSpace: 24, size: 400 });
         if ((await decode(bytes)) !== URL_PAYLOAD) throw new Error("decode failed");
-        const m = await generateModules(URL_PAYLOAD, { ecc: "H", logoSpace: 24, size: 400 });
+        const m = await qrModules(URL_PAYLOAD, { ecc: "H", logoSpace: 24, size: 400 });
         return `${m.logo?.modules} modules reserved`;
       });
 
       await run("payload builders", async () => {
         const pp = promptpay({ target: "081-234-5678", amount: 250 });
-        if ((await decode(await generatePng(pp, { ecc: "M" }))) !== pp) {
+        if ((await decode(await qrPng(pp, { ecc: "M" }))) !== pp) {
           throw new Error("promptpay round trip failed");
         }
         wifi({ ssid: "Cafe; Free", password: "hunter2" });
@@ -93,7 +93,7 @@ export default function Home() {
 
       await run("typed errors", async () => {
         try {
-          await generatePng("x", { ecc: "L", logoSpace: 30 });
+          await qrPng("x", { ecc: "L", logoSpace: 30 });
         } catch (e) {
           const code = (e as { code?: string }).code;
           if (code !== "LOGO_SPACE_TOO_LARGE") throw new Error(`got ${code}`);
@@ -115,11 +115,12 @@ export default function Home() {
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 p-8 font-mono text-sm">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-xl font-semibold">hqr-generate — Next.js client checks</h1>
+        <h1 className="text-xl font-semibold">barqr — Next.js client checks</h1>
         <nav className="flex gap-3 underline">
           <Link href="/ssr">/ssr</Link>
           <Link href="/api/qr?text=hello">/api/qr</Link>
           <Link href="/scan">/scan</Link>
+          <Link href="/barcode">/barcode</Link>
         </nav>
       </header>
 
@@ -139,19 +140,19 @@ export default function Home() {
 
       <section className="flex flex-wrap items-start gap-6">
         <figure>
-          <figcaption className="mb-1 opacity-60">useGenerate</figcaption>
-          {png.src && <img src={png.src} width={240} height={240} alt="QR from useGenerate" />}
+          <figcaption className="mb-1 opacity-60">useQr</figcaption>
+          {png.src && <img src={png.src} width={240} height={240} alt="QR from useQr" />}
         </figure>
 
         <figure>
-          <figcaption className="mb-1 opacity-60">useGenerateSvg</figcaption>
+          <figcaption className="mb-1 opacity-60">useQrSvg</figcaption>
           {svg.svg && (
             <div className="w-60" dangerouslySetInnerHTML={{ __html: svg.svg }} />
           )}
         </figure>
 
         <figure>
-          <figcaption className="mb-1 opacity-60">useGenerateModules → inline SVG</figcaption>
+          <figcaption className="mb-1 opacity-60">useQrModules → inline SVG</figcaption>
           {grid.modules && <InlineQr modules={grid.modules} />}
         </figure>
       </section>
@@ -163,7 +164,7 @@ export default function Home() {
 function InlineQr({
   modules,
 }: {
-  modules: NonNullable<ReturnType<typeof useGenerateModules>["modules"]>;
+  modules: NonNullable<ReturnType<typeof useQrModules>["modules"]>;
 }) {
   const { n, scale, size, origin, dark, logo } = modules;
   const rects = [];
