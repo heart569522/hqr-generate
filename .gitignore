@@ -8,6 +8,10 @@
 /tests/my-app/node_modules
 /tests/my-app/.next
 /tests/my-app/package-lock.json
+/tests/nuxt-app/node_modules
+/tests/nuxt-app/.nuxt
+/tests/nuxt-app/.output
+/tests/nuxt-app/package-lock.json
 
 # Local tarballs from `npm pack`.
 *.tgz

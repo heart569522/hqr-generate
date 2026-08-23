@@ -245,9 +245,10 @@
       });
 
       await check("vue composables work in a real app", async () => {
-        // ฝั่ง client: SSR ถูกครอบด้วย tests/node/vue-ssr.test.mjs แล้ว
         const { createApp, defineComponent, h, ref, nextTick } = await import("vue");
-        const { useGenerate, useGenerateModules } = await import("../vue/index.js");
+        const { useGenerate, useGenerateModules, useGenerateSvg, useDecode } = await import(
+          "../vue/index.js"
+        );
 
         const host = document.createElement("div");
         document.body.append(host);
@@ -258,8 +259,17 @@
             const text = ref("https://example.com/vue");
             const size = ref(240);
             const gen = useGenerate(text, { size, ecc: "H" });
+            const svg = useGenerateSvg(text, {
+              size,
+              ecc: "H",
+              logoSpace: 20,
+              logo: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E",
+            });
             const grid = useGenerateModules(text, { size });
-            api = { text, size, gen, grid };
+            // Feed the decoder whatever the generator just produced.
+            const source = ref(undefined);
+            const dec = useDecode(source);
+            api = { text, size, gen, svg, grid, dec, source };
             return () => h("img", { src: gen.src.value ?? undefined, width: 120 });
           },
         });
@@ -268,7 +278,7 @@
         app.mount(host);
 
         const settle = async (probe) => {
-          for (let i = 0; i < 60; i++) {
+          for (let i = 0; i < 80; i++) {
             await new Promise((r) => setTimeout(r, 50));
             await nextTick();
             if (probe()) return true;
@@ -278,10 +288,20 @@
 
         assert(await settle(() => api.gen.src.value), "useGenerate never produced a src");
         assert(api.gen.bytes.value instanceof Uint8Array, "bytes should be a Uint8Array");
-        assert(api.grid.modules.value?.n > 0, "useGenerateModules produced no grid");
+        assert(await settle(() => api.svg.svg.value), "useGenerateSvg never produced markup");
+        assert(api.svg.svg.value.includes("<image "), "logoSpace + logo should emit an <image>");
+        assert(await settle(() => api.grid.modules.value), "useGenerateModules produced no grid");
         assert(api.gen.error.value == null, "unexpected error: " + api.gen.error.value);
 
-        // reactivity: เปลี่ยน ref แล้ว composable ต้อง regenerate
+        // useDecode, fed the bytes useGenerate produced.
+        api.source.value = api.gen.bytes.value;
+        assert(await settle(() => api.dec.text.value), "useDecode never decoded");
+        assert(
+          api.dec.text.value === "https://example.com/vue",
+          "useDecode read " + JSON.stringify(api.dec.text.value),
+        );
+
+        // Reactivity: changing a ref must re-run every composable.
         const before = api.gen.src.value;
         const modulesBefore = api.grid.modules.value.n;
         api.text.value = "a much longer payload that needs a bigger symbol than the first one";
@@ -291,7 +311,7 @@
           "a longer payload should need more modules",
         );
 
-        // unmount ต้อง revoke object URL ไม่ให้รั่ว
+        // Unmount must revoke the object URL.
         const leaked = api.gen.src.value;
         app.unmount();
         host.remove();
@@ -303,6 +323,72 @@
           revoked = true;
         }
         assert(revoked, "object URL should be revoked on unmount");
+      });
+
+      await check("vue useQrScanner drives a live MediaStream", async () => {
+        const { createApp, defineComponent, h, ref, nextTick } = await import("vue");
+        const { useQrScanner } = await import("../vue/index.js");
+
+        // Same canvas-as-camera trick, driven by setInterval so it keeps
+        // producing frames even when the page is not visible.
+        const m = await generateModules("vue scanner works", { size: 400 });
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = m.size;
+        const ctx = canvas.getContext("2d");
+        paint(ctx, m);
+        const timer = setInterval(() => paint(ctx, m), 100);
+
+        const stream = canvas.captureStream(15);
+        const realDevices = navigator.mediaDevices;
+        Object.defineProperty(navigator, "mediaDevices", {
+          configurable: true,
+          value: { ...realDevices, getUserMedia: async () => stream },
+        });
+
+        const host = document.createElement("div");
+        document.body.append(host);
+
+        let api;
+        const App = defineComponent({
+          setup() {
+            const scanner = useQrScanner({ scanIntervalMs: 60 });
+            api = scanner;
+            // The composable's `video` ref has to bind to the element.
+            return () => h("video", { ref: scanner.video, playsinline: true, muted: true });
+          },
+        });
+        const app = createApp(App);
+        app.mount(host);
+
+        try {
+          let settled = false;
+          for (let i = 0; i < 120; i++) {
+            await new Promise((r) => setTimeout(r, 100));
+            await nextTick();
+            if (api.result.value) {
+              settled = true;
+              break;
+            }
+          }
+          assert(settled, "scanner produced no result: " + String(api.error.value ?? ""));
+          assert(
+            api.result.value.text === "vue scanner works",
+            "decoded " + JSON.stringify(api.result.value.text),
+          );
+          assert(api.running.value === true, "running should be true while scanning");
+          assert(api.video.value instanceof HTMLVideoElement, "video ref should hold the element");
+        } finally {
+          clearInterval(timer);
+          app.unmount();
+          host.remove();
+          Object.defineProperty(navigator, "mediaDevices", {
+            configurable: true,
+            value: realDevices,
+          });
+        }
+
+        // Unmounting disposes the scope, which must release the camera.
+        assert(stream.getTracks().every((t) => t.readyState === "ended"), "camera not released");
       });
 
       await check("errors carry a code", async () => {
