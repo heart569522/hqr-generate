@@ -1,14 +1,14 @@
 {
-  "name": "@wirunrom/hqr-generate",
+  "name": "barqr",
   "version": "0.6.0",
   "description": "High-performance QR code generator and decoder powered by Rust + WASM",
   "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wirunrom/hqr-generate.git"
+    "url": "git+https://github.com/wirunrom/barqr.git"
   },
-  "homepage": "https://github.com/wirunrom/hqr-generate#readme",
+  "homepage": "https://github.com/wirunrom/barqr#readme",
   "engines": {
     "node": ">=20.19"
   },

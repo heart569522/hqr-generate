@@ -1,7 +1,7 @@
 // Server component: the QR is rendered during SSR and arrives in the HTML.
 // No client JS, no WASM in the browser, no layout shift.
-import { decode, generateModules, generatePng, generateSvg } from "@wirunrom/hqr-generate";
-import { promptpay } from "@wirunrom/hqr-generate/payload";
+import { decode, generateModules, generatePng, generateSvg } from "barqr";
+import { promptpay } from "barqr/payload";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";

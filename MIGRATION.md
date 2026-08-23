@@ -7,19 +7,19 @@
 
 ## Migrating 0.6.x → 1.0.0
 
-**The package moved to `__NEW_PKG__`.** `@wirunrom/hqr-generate` is deprecated
+**The package moved to `barqr`.** `@wirunrom/hqr-generate` is deprecated
 and will not get further releases.
 
 ```bash
 npm uninstall @wirunrom/hqr-generate
-npm i __NEW_PKG__
+npm i barqr
 ```
 
 Then update your imports. Nothing else about them changes:
 
 ```diff
 - import { generatePng } from "@wirunrom/hqr-generate";
-+ import { generatePng } from "__NEW_PKG__";
++ import { generatePng } from "barqr";
 ```
 
 Every subpath keeps its name: `/react`, `/vue`, `/payload`, `/scanner`,
@@ -73,7 +73,7 @@ if (err.code === "IMAGE_TOO_LARGE") {
 ### 3. Vue and Nuxt are supported
 
 New, so nothing to migrate — but if you had written your own composables around
-the core API, `__NEW_PKG__/vue` now ships five of them, SSR-safe for Nuxt.
+the core API, `barqr/vue` now ships five of them, SSR-safe for Nuxt.
 
 ### Rust crate
 

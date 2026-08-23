@@ -1,4 +1,4 @@
-# hqr-generate — Nuxt fixture
+# barqr — Nuxt fixture
 
 The Vue counterpart to [`../my-app`](../my-app). Unit tests cannot see what a
 framework's bundler does to a package, and this project has been bitten by that
@@ -8,13 +8,13 @@ Nitro bundles server code the same way, so this exists to prove the same
 failures do not happen here.
 
 `nuxt.config.ts` is deliberately empty. **If it ever needs an entry for
-`@wirunrom/hqr-generate`, that is a bug in the package, not a fix here.**
+`barqr`, that is a bug in the package, not a fix here.**
 
 ```bash
 # from the repo root
 npm run build && npm pack --ignore-scripts
 cd tests/nuxt-app
-npm install && npm install ../../wirunrom-hqr-generate-0.6.0.tgz
+npm install && npm install ../../barqr-0.6.0.tgz
 npm run dev
 ```
 

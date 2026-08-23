@@ -1,17 +1,20 @@
 #!/usr/bin/env node
 // Rename the package everywhere at once.
 //
-// The name appears in 26 files for npm and 16 more for the Rust crate — README
-// prose, type declarations, both framework fixtures, the wasm glue filenames,
-// the size budget. Doing that by hand is how you end up with a published
-// package whose docs import something that does not exist.
+// The name appears across README prose, type declarations, both framework
+// fixtures, the wasm glue filenames and the size budget. Doing that by hand is
+// how you end up with a published package whose docs import something that does
+// not exist.
+//
+// The constants below track the *current* name, so this stays usable if the
+// package is ever renamed again.
 //
 //   node scripts/rename.mjs --npm @scope/newname
 //   node scripts/rename.mjs --npm qrkit --crate qrkit --repo owner/qrkit
 //   node scripts/rename.mjs --npm qrkit --dry-run
 //
 // `--crate` also renames the Rust crate, which changes the emitted wasm
-// filenames (hqr_generate_bg.wasm and friends) and everything referring to
+// filenames (barqr_bg.wasm and friends) and everything referring to
 // them. Leave it off to rename only the npm package.
 
 import { readFile, readdir, writeFile } from "node:fs/promises";
@@ -19,9 +22,10 @@ import { join, relative } from "node:path";
 
 const ROOT = new URL("..", import.meta.url).pathname;
 
-const OLD_NPM = "@wirunrom/hqr-generate";
-const OLD_CRATE_SNAKE = "hqr_generate";
-const OLD_CRATE_KEBAB = "hqr-generate";
+const OLD_NPM = "barqr";
+const OLD_CRATE_SNAKE = "barqr";
+const OLD_CRATE_KEBAB = "barqr";
+// The GitHub repository has not been renamed; pass --repo when it is.
 const OLD_REPO = "wirunrom/hqr-generate";
 
 // These describe the rename itself, so the old name in them is the point.

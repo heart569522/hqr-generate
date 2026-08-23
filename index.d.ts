@@ -1,5 +1,5 @@
 /* =========================================================
- * @wirunrom/hqr-generate — browser / bundler types
+ * barqr — browser / bundler types
  *
  * Everything here is async: the browser build loads WASM lazily.
  * Node gets synchronous signatures from `index.node.d.ts`, selected

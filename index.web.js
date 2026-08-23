@@ -13,7 +13,7 @@ import init, {
   generate_barcode_png as _barPng,
   generate_barcode_svg as _barSvg,
   generate_barcode_modules as _barModules,
-} from "./pkg/web/hqr_generate.js";
+} from "./pkg/web/barqr.js";
 
 import {
   logoHref,
@@ -30,7 +30,7 @@ function ensureEncoder() {
 }
 
 function ensureDecoder() {
-  return (_decoderReady ??= import("./pkg/web-decode/hqr_generate.js").then(async (mod) => {
+  return (_decoderReady ??= import("./pkg/web-decode/barqr.js").then(async (mod) => {
     await mod.default();
     return mod;
   }));

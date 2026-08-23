@@ -4,7 +4,7 @@
 // `import` before `node`, so Node could resolve to the browser build and die
 // trying to `fetch()` its own .wasm. If this route returns an image, the
 // resolution order is right.
-import { generatePng, generateSvg } from "@wirunrom/hqr-generate";
+import { generatePng, generateSvg } from "barqr";
 
 export const dynamic = "force-dynamic";
 

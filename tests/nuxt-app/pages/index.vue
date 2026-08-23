@@ -2,14 +2,14 @@
 // Client-side surface. Every import goes through the package name, so this
 // exercises the real `exports` map the way a user's app would.
 import { ref, watchEffect } from "vue";
-import { decode, decodeAll, generateMany, generatePng } from "@wirunrom/hqr-generate";
-import { promptpay, wifi } from "@wirunrom/hqr-generate/payload";
+import { decode, decodeAll, generateMany, generatePng } from "barqr";
+import { promptpay, wifi } from "barqr/payload";
 import {
   useDecode,
   useGenerate,
   useGenerateModules,
   useGenerateSvg,
-} from "@wirunrom/hqr-generate/vue";
+} from "barqr/vue";
 
 const text = ref("https://example.com/nuxt");
 const size = ref(240);

@@ -1,17 +1,17 @@
 [package]
-name = "hqr-generate"
+name = "barqr"
 version = "0.6.0"
 edition = "2024"
 rust-version = "1.88"
 description = "Fast, scan-reliable black/white QR code generator and decoder (PNG / SVG) powered by Rust + WASM"
 license = "MIT"
-repository = "https://github.com/wirunrom/hqr-generate"
+repository = "https://github.com/wirunrom/barqr"
 keywords = ["qrcode", "qr", "wasm", "png", "svg"]
 categories = ["encoding", "multimedia::images", "wasm"]
 exclude = ["/pkg", "/react", "/react-src", "/tests/my-app", "/tests/node", "/.github", "/fuzz"]
 
 [lib]
-name = "hqr_generate"
+name = "barqr"
 path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 

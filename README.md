@@ -1,4 +1,4 @@
-# @wirunrom/hqr-generate
+# barqr
 
 Fast, scan-reliable **QR codes and 1D barcodes** — generate and decode, Rust compiled to WebAssembly, with thin JS, React and Vue wrappers.
 
@@ -9,7 +9,7 @@ Fast, scan-reliable **QR codes and 1D barcodes** — generate and decode, Rust c
 - Black & white only, on purpose: scan reliability first
 
 ```bash
-npm i @wirunrom/hqr-generate
+npm i barqr
 ```
 
 Node 20.19+. Coming from an earlier release, or from the package this one
@@ -21,7 +21,7 @@ is the import path and nothing else.
 ## Quick start
 
 ```js
-import { generatePng, generateSvg, decode } from "@wirunrom/hqr-generate";
+import { generatePng, generateSvg, decode } from "barqr";
 
 const png = await generatePng("https://example.com", { size: 320 }); // Uint8Array, exactly 320×320
 const svg = await generateSvg("https://example.com", { size: 320 }); // '<svg …><path …/></svg>'
@@ -39,7 +39,7 @@ In Node the same imports are **synchronous** — the `exports` map picks a build
 
 ```ts
 // app/api/qr/route.ts — note the absence of await
-import { generatePng } from "@wirunrom/hqr-generate";
+import { generatePng } from "barqr";
 
 export function GET() {
   return new Response(generatePng("https://example.com") as BodyInit, {
@@ -123,7 +123,7 @@ try {
 ## React & Vue
 
 ```tsx
-import { useGenerate } from "@wirunrom/hqr-generate/react";
+import { useGenerate } from "barqr/react";
 
 function Ticket({ url }: { url: string }) {
   const { src, error } = useGenerate(url, { size: 320 });
@@ -134,7 +134,7 @@ function Ticket({ url }: { url: string }) {
 
 ```vue
 <script setup>
-import { useGenerate } from "@wirunrom/hqr-generate/vue";
+import { useGenerate } from "barqr/vue";
 const props = defineProps(["url"]);
 const { src, error } = useGenerate(() => props.url, { size: 320 });
 </script>
@@ -182,7 +182,7 @@ ctx.drawImage(img, logo.x, logo.y, logo.size, logo.size);
 <summary><b>Camera scanning</b></summary>
 
 ```js
-import { createScanner } from "@wirunrom/hqr-generate/scanner";
+import { createScanner } from "barqr/scanner";
 
 const scanner = await createScanner({
   video: document.querySelector("video"),
@@ -201,7 +201,7 @@ In React, `useQrScanner()` returns a `videoRef` to attach and releases the camer
 <summary><b>Payload builders (Wi-Fi, contacts, PromptPay…)</b></summary>
 
 ```js
-import { promptpay, wifi } from "@wirunrom/hqr-generate/payload";
+import { promptpay, wifi } from "barqr/payload";
 
 await generatePng(wifi({ ssid: "Cafe Wi-Fi", password: "hunter2" }));
 await generatePng(promptpay({ target: "081-234-5678", amount: 250 }), { ecc: "M" });

@@ -1,5 +1,5 @@
 //! ทดลอง: decoder ยอมรับภาพใหญ่แค่ไหน และเสียหน่วยความจำเท่าไหร่
-use hqr_generate::{DecodeInput, QrBitmap, decode, render_png};
+use barqr::{DecodeInput, QrBitmap, decode, render_png};
 use std::time::Instant;
 
 fn big_white_png(side: u32) -> Vec<u8> {

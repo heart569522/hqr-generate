@@ -3,7 +3,7 @@
 // Nitro bundles this file, which is exactly where the `__dirname` lookup in
 // wasm-pack's glue used to fail. If this returns an image, the binary really is
 // travelling inside the JS.
-import { generatePng, generateSvg } from "@wirunrom/hqr-generate";
+import { generatePng, generateSvg } from "barqr";
 
 export default defineEventHandler((event) => {
   const query = getQuery(event);

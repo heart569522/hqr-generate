@@ -1,14 +1,14 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use hqr_generate::{
+use barqr::{
     GenerateOptions, generate_qr_bitmap, generate_qr_modules, render_png, render_png_modules,
     render_svg_modules,
 };
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 const OPTS: GenerateOptions = GenerateOptions {
     size: 320,
     margin: 4,
-    ecc: hqr_generate::Ecc::Q,
-    size_mode: hqr_generate::SizeMode::Exact,
+    ecc: barqr::Ecc::Q,
+    size_mode: barqr::SizeMode::Exact,
     logo_space: 0,
 };
 

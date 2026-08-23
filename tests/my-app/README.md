@@ -1,4 +1,4 @@
-# hqr-generate — Next.js fixture
+# barqr — Next.js fixture
 
 Not a demo. This app exists to catch the failures that only appear once the
 package is resolved through its `exports` map by a real framework: module
@@ -13,7 +13,7 @@ import skips `exports` entirely and would prove nothing.
 # from the repo root
 npm run build && npm pack --ignore-scripts
 cd tests/my-app
-npm install && npm install ../../wirunrom-hqr-generate-0.6.0.tgz
+npm install && npm install ../../barqr-0.6.0.tgz
 npm run dev
 ```
 

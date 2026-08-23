@@ -48,6 +48,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3826fb6e98ec72c0c0db8c9a40af4932d16793021027469857e84c1b50a1e8f"
 
 [[package]]
+name = "barqr"
+version = "0.6.0"
+dependencies = [
+ "barcoders",
+ "criterion",
+ "fast_qr",
+ "image",
+ "js-sys",
+ "png",
+ "rqrr",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "bitflags"
 version = "2.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -333,20 +347,6 @@ name = "hermit-abi"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
-
-[[package]]
-name = "hqr-generate"
-version = "0.6.0"
-dependencies = [
- "barcoders",
- "criterion",
- "fast_qr",
- "image",
- "js-sys",
- "png",
- "rqrr",
- "wasm-bindgen",
-]
 
 [[package]]
 name = "image"

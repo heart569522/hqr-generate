@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-`@wirunrom/hqr-generate` is a QR code generator and decoder with a Rust core compiled to WebAssembly, plus thin JS/React wrappers. Core philosophy: **binary-first** — core APIs return raw `Uint8Array` (PNG) or `string` (SVG); Base64/Data URL conversion is pushed to the UI layer.
+`barqr` is a QR code generator and decoder with a Rust core compiled to WebAssembly, plus thin JS/React wrappers. Core philosophy: **binary-first** — core APIs return raw `Uint8Array` (PNG) or `string` (SVG); Base64/Data URL conversion is pushed to the UI layer.
 
 ## Build & Dev Commands
 
@@ -35,7 +35,7 @@ CI and publish both run Node 24: npm 11.5.1+ is what trusted publishing needs, a
 
 The name lives in 23 files for npm alone, 39 once the crate and repo are included — README prose, `.d.ts` files, both framework fixtures, the wasm glue filenames, the size budget. Done by hand you ship a package whose own docs import something that does not exist.
 
-Two things are left alone deliberately. `.github/release-notes/v0.*.md` describe releases that already happened under the old name; rewriting them would put the repo out of step with what is published. And `MIGRATION.md` plus `release-notes/v1.0.0.md` are *about* the rename, so they carry a `__NEW_PKG__` placeholder that gets filled, rather than a name that gets replaced — which is also why the README never spells the old name out.
+Two things are left alone deliberately. `.github/release-notes/v0.*.md` describe releases that already happened under the old name; rewriting them would put the repo out of step with what is published. And `MIGRATION.md` plus `release-notes/v1.0.0.md` are *about* the rename, so they carry a `barqr` placeholder that gets filled, rather than a name that gets replaced — which is also why the README never spells the old name out.
 
 The script prints what it cannot do: updating npm's Trusted Publisher (bound to `owner/repo/publish.yml`, so **renaming the repo breaks publishing until it matches**), `npm deprecate` on the old package (**never** unpublish — that breaks lockfiles), and the GitHub repo rename itself.
 
@@ -89,7 +89,7 @@ Other files:
 
 All three combinations must compile independently; CI checks the matrix.
 
-**The Node binaries are inlined as base64 by `scripts/finalize-pkg.mjs`, and must stay that way.** wasm-pack's Node glue locates its binary with `readFileSync(__dirname + "/hqr_generate_bg.wasm")`, and any bundler that pulls that CJS module into its own output rewrites `__dirname`, so the read fails with `ENOENT` at import time — Next.js server components, route handlers, serverless bundles.
+**The Node binaries are inlined as base64 by `scripts/finalize-pkg.mjs`, and must stay that way.** wasm-pack's Node glue locates its binary with `readFileSync(__dirname + "/barqr_bg.wasm")`, and any bundler that pulls that CJS module into its own output rewrites `__dirname`, so the read fails with `ENOENT` at import time — Next.js server components, route handlers, serverless bundles.
 
 The usual workaround for WASM packages, `serverExternalPackages`, was tried and is **worse**: an externalized copy of `react/*.js` resolves its own `react`, so every client component using our hooks dies during SSR with `Cannot read properties of null (reading 'useRef')`. Both failures are silent in unit tests and only show up in a real framework, which is what `tests/my-app` exists to catch.
 

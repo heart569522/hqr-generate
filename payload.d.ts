@@ -1,5 +1,5 @@
 /* =========================================================
- * @wirunrom/hqr-generate/payload
+ * barqr/payload
  *
  * Typed builders for the string formats QR scanners recognize.
  * Pure strings — no WASM, nothing else from the package is loaded.

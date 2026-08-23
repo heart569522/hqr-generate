@@ -7,9 +7,9 @@
 // wasm-pack's glue used to locate its binary through `__dirname`.
 const { data } = await useAsyncData("qr", async () => {
   const { decode, generateModules, generatePng, generateSvg } = await import(
-    "@wirunrom/hqr-generate"
+    "barqr"
   );
-  const { promptpay } = await import("@wirunrom/hqr-generate/payload");
+  const { promptpay } = await import("barqr/payload");
 
   const url = "https://example.com/rendered-on-the-server";
   const payload = promptpay({ target: "081-234-5678", amount: 199.5 });

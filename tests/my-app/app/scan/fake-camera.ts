@@ -4,7 +4,7 @@
 // `getUserMedia` exercises the entire scanner path — frame pump, downscale,
 // decode, de-duplication, teardown — with nothing faked downstream of the
 // stream itself.
-import { generateModules } from "@wirunrom/hqr-generate";
+import { generateModules } from "barqr";
 
 export interface FakeCamera {
   /** Undo the getUserMedia patch and stop repainting. */

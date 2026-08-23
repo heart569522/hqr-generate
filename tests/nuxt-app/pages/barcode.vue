@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Barcodes through the Vue composables, in Nuxt.
 import { ref } from "vue";
-import { useBarcode, useBarcodeSvg } from "@wirunrom/hqr-generate/vue";
+import { useBarcode, useBarcodeSvg } from "barqr/vue";
 
 const FORMATS: [string, string][] = [
   ["code128", "HELLO-123"],

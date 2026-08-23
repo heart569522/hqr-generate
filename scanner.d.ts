@@ -1,5 +1,5 @@
 /* =========================================================
- * @wirunrom/hqr-generate/scanner
+ * barqr/scanner
  *
  * Live camera scanning, framework-agnostic. Browser only.
  * ======================================================= */

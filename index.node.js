@@ -14,11 +14,11 @@ import {
 } from "./internal/options.js";
 
 const require = createRequire(import.meta.url);
-const encoder = require("./pkg/nodejs/hqr_generate.js");
+const encoder = require("./pkg/nodejs/barqr.js");
 
 let _decoder;
 function decoder() {
-  return (_decoder ??= require("./pkg/nodejs-decode/hqr_generate.js"));
+  return (_decoder ??= require("./pkg/nodejs-decode/barqr.js"));
 }
 
 /**
