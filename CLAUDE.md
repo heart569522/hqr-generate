@@ -29,6 +29,16 @@ Publishing: tag-triggered via `.github/workflows/publish.yml`, authenticated by 
 
 CI and publish both run Node 24: npm 11.5.1+ is what trusted publishing needs, and the publish job re-checks that at runtime rather than trusting the runner image.
 
+### Renaming the package
+
+`node scripts/rename.mjs --npm <name> [--crate <name>] [--repo <owner/repo>] [--dry-run]`
+
+The name lives in 23 files for npm alone, 39 once the crate and repo are included — README prose, `.d.ts` files, both framework fixtures, the wasm glue filenames, the size budget. Done by hand you ship a package whose own docs import something that does not exist.
+
+Two things are left alone deliberately. `.github/release-notes/v0.*.md` describe releases that already happened under the old name; rewriting them would put the repo out of step with what is published. And `MIGRATION.md` plus `release-notes/v1.0.0.md` are *about* the rename, so they carry a `__NEW_PKG__` placeholder that gets filled, rather than a name that gets replaced — which is also why the README never spells the old name out.
+
+The script prints what it cannot do: updating npm's Trusted Publisher (bound to `owner/repo/publish.yml`, so **renaming the repo breaks publishing until it matches**), `npm deprecate` on the old package (**never** unpublish — that breaks lockfiles), and the GitHub repo rename itself.
+
 **Before tagging a release, write `.github/release-notes/vX.Y.Z.md`.** Its `# ` heading becomes the release title and the rest becomes the body; without it the workflow falls back to auto-generated notes and says so in a warning. Links in that file must be absolute and pinned to the tag — GitHub does not resolve relative links in release bodies. Manual escape hatches: `publish:npm`, `publish:github`, `release:test`.
 
 ## Architecture

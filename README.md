@@ -11,7 +11,9 @@ Fast, scan-reliable **QR code generator and decoder** — Rust compiled to WebAs
 npm i @wirunrom/hqr-generate
 ```
 
-Node 20.19+. Upgrading from 0.5? Your code still works — see [MIGRATION.md](./MIGRATION.md) for the one behavioural change.
+Node 20.19+. Coming from an earlier release, or from the package this one
+continues? [MIGRATION.md](./MIGRATION.md) has the whole list — for most code it
+is the import path and nothing else.
 
 ---
 

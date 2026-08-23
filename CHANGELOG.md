@@ -1,4 +1,15 @@
-## [Unreleased]
+## [Unreleased] — 1.0.0
+
+### Renamed
+
+The package moves to a new name at 1.0. `@wirunrom/hqr-generate` is deprecated
+and 0.6.0 is its last release; see [MIGRATION.md](./MIGRATION.md). For most code
+the whole change is the import path — every function, option and hook keeps its
+name.
+
+`scripts/rename.mjs` performs the rename across the repo, since the old name
+appears in 23 files for npm alone and 39 once the crate and repo are included.
+
 
 ### Security
 

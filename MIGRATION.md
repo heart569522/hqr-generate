@@ -1,4 +1,106 @@
-# Migrating 0.5.x → 0.6.0
+# Migration
+
+- [0.6.x → 1.0.0](#migrating-06x--100) — the package was renamed
+- [0.5.x → 0.6.0](#migrating-05x--060)
+
+---
+
+## Migrating 0.6.x → 1.0.0
+
+**The package moved to `__NEW_PKG__`.** `@wirunrom/hqr-generate` is deprecated
+and will not get further releases.
+
+```bash
+npm uninstall @wirunrom/hqr-generate
+npm i __NEW_PKG__
+```
+
+Then update your imports. Nothing else about them changes:
+
+```diff
+- import { generatePng } from "@wirunrom/hqr-generate";
++ import { generatePng } from "__NEW_PKG__";
+```
+
+Every subpath keeps its name: `/react`, `/vue`, `/payload`, `/scanner`,
+`/web`, `/node`.
+
+### The API is almost entirely unchanged
+
+All eight functions keep their names and signatures — `generate`,
+`generatePng`, `generateSvg`, `generateModules`, `generateMany`, `decode`,
+`decodeAll`, `ready` — and so does every option: `size`, `margin`, `ecc`,
+`sizeMode`, `logoSpace`, `logo`. The five React hooks are untouched.
+
+Three things actually differ.
+
+### 1. The snake_case aliases are gone
+
+```diff
+- generate_png(text, opts)
++ generatePng(text, opts)
+
+- generate_svg(text, opts)
++ generateSvg(text, opts)
+
+- generate_modules(text, opts)
++ generateModules(text, opts)
+```
+
+They were 0.5 compatibility shims, marked deprecated in 0.6. Carrying something
+deprecated into a 1.0 means removing it in 2.0 or never.
+
+### 2. Very large images are refused
+
+Decoding now rejects anything over **40 megapixels** with a new
+`IMAGE_TOO_LARGE` code, before allocating for it.
+
+This closes a real hole rather than tightening a limit for its own sake: a
+1.2 MB PNG declaring 16000×16000 made 0.6 allocate **976 MB** and spend 2.2 s
+of CPU deciding there was no QR code in it. If you decode images a user
+uploaded, 0.6 gave them a way to exhaust your memory from a small file.
+
+40 MP is more than any phone camera and most flatbed scans produce. If you were
+feeding the decoder something larger, downscale first — a QR code needs a few
+hundred pixels across to read, not tens of thousands.
+
+```js
+if (err.code === "IMAGE_TOO_LARGE") {
+  // downscale through a canvas and retry
+}
+```
+
+### 3. Vue and Nuxt are supported
+
+New, so nothing to migrate — but if you had written your own composables around
+the core API, `__NEW_PKG__/vue` now ships five of them, SSR-safe for Nuxt.
+
+### Rust crate
+
+Only if you depend on the crate rather than the npm package:
+
+- **MSRV is now 1.88**, raised from a declared 1.85 that was never true — the
+  `image` crate has required 1.88 for some time, so `--features decode` could
+  not have built on 1.85 at all.
+- `GenerateError` and `DecodeError` are `#[non_exhaustive]`. Add a `_` arm.
+- `DecodeError::ImageTooLarge` is new.
+- `render_svg(&QrBitmap)` was removed. It emitted one `<rect>` per module —
+  143 KB where `render_svg_modules` produces 5.2 KB for the same code. The rest
+  of the 8-bit API (`QrBitmap`, `rasterize`, `render_png`) stays.
+- `rqrr` moved 0.7 → 0.10, which fixes a panic reachable from `decode` with
+  crafted input. On `wasm32-unknown-unknown` panics abort and cannot be caught,
+  so that one was fatal to the whole WASM instance.
+
+### Nothing to do about
+
+Output bytes differ slightly from 0.6 — the decoder converts to luma instead of
+RGBA, and dependencies moved. The compatibility policy is explicit that exact
+bytes are not API: what is guaranteed is that output decodes to what you
+encoded, at the size you asked for.
+
+---
+
+## Migrating 0.5.x → 0.6.0
 
 **Short version: existing code keeps working.** Every 0.5 export still exists
 with the same name and the same signature, and no import path changed. What
