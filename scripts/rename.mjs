@@ -25,8 +25,7 @@ const ROOT = new URL("..", import.meta.url).pathname;
 const OLD_NPM = "barqr";
 const OLD_CRATE_SNAKE = "barqr";
 const OLD_CRATE_KEBAB = "barqr";
-// The GitHub repository has not been renamed; pass --repo when it is.
-const OLD_REPO = "wirunrom/hqr-generate";
+const OLD_REPO = "wirunrom/barqr";
 
 // These describe the rename itself, so the old name in them is the point.
 // They get `__NEW_PKG__` filled in and nothing else touched.
