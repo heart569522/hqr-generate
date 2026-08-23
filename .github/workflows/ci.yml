@@ -42,11 +42,14 @@ jobs:
 
       # Each published WASM binary is built from one of these feature sets, so
       # they all have to compile on their own — not just the union of them.
+      # --all-targets so examples, benches and tests are checked too, not just
+      # the library. An example that only builds under one feature set is
+      # otherwise invisible here and shows up as red squiggles in an editor.
       - name: Feature matrix
         run: |
-          cargo check --no-default-features --features generate
-          cargo check --no-default-features --features decode
-          cargo check --no-default-features --features generate,decode
+          cargo check --all-targets --no-default-features --features generate
+          cargo check --all-targets --no-default-features --features decode
+          cargo check --all-targets --no-default-features --features generate,decode
 
   msrv:
     name: MSRV
@@ -68,9 +71,9 @@ jobs:
 
       - name: Build every feature set at the MSRV
         run: |
-          cargo check --no-default-features --features generate
-          cargo check --no-default-features --features decode
-          cargo check --no-default-features --features generate,decode
+          cargo check --all-targets --no-default-features --features generate
+          cargo check --all-targets --no-default-features --features decode
+          cargo check --all-targets --no-default-features --features generate,decode
 
   wasm:
     name: WASM + npm package

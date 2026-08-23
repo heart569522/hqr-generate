@@ -55,9 +55,22 @@ criterion = "0.5"
 # PNG, and a corpus without any would leave most of that surface unexercised.
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 
+# `required-features` on every target that needs more than the defaults.
+# Without it Cargo builds them under whatever features happen to be active, and
+# an editor's rust-analyzer uses the defaults — so a file that is perfectly fine
+# under `cargo test --features decode` shows as broken while you edit it.
 [[bench]]
 name = "generate"
 harness = false
+required-features = ["generate"]
+
+[[example]]
+name = "decode_limits"
+required-features = ["generate", "decode"]
+
+[[example]]
+name = "fuzz_seeds"
+required-features = ["generate"]
 
 [profile.release]
 opt-level = 3
