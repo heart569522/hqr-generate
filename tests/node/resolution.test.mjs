@@ -71,7 +71,7 @@ test("the Node glue never touches the filesystem", async () => {
   // catches it here instead of in someone's deploy.
   for (const dir of ["nodejs", "nodejs-decode"]) {
     const glue = await readFile(
-      new URL(`../../pkg/${dir}/barqrcode.js`, import.meta.url),
+      new URL(`../../pkg/${dir}/barqr.js`, import.meta.url),
       "utf8",
     );
     assert.ok(!glue.includes("__dirname"), `pkg/${dir} still resolves a path at runtime`);
@@ -95,7 +95,7 @@ test("the browser builds still load their .wasm as an asset", async () => {
     assert.ok(wasm.size > 100_000, `pkg/${dir} is missing its binary`);
 
     const glue = await readFile(
-      new URL(`../../pkg/${dir}/barqrcode.js`, import.meta.url),
+      new URL(`../../pkg/${dir}/barqr.js`, import.meta.url),
       "utf8",
     );
     assert.ok(!glue.includes("Buffer.from("), `pkg/${dir} should not inline its binary`);

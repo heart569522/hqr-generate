@@ -55,7 +55,12 @@ const TEXT = /\.(md|json|js|mjs|ts|tsx|vue|rs|toml|html|yml|yaml)$/;
 /// them back. `--crate` and `--repo` then rename them deliberately, if asked.
 const RUST = /\.(rs|toml)$/;
 const CRATE_OR_REPO = new RegExp(
-  `${OLD_REPO}|${OLD_CRATE_SNAKE}_|${OLD_CRATE_SNAKE}::`,
+  [
+    OLD_REPO,                                  // github.com/owner/barqr
+    `${OLD_CRATE_SNAKE}(_bg)?\\.(js|wasm|d\\.ts)`, // barqr.js, barqr_bg.wasm
+    `${OLD_CRATE_SNAKE}_`,                     // barqr_bg, other snake forms
+    `${OLD_CRATE_SNAKE}::`,                    // use barqr::…
+  ].join("|"),
   "g",
 );
 

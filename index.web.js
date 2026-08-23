@@ -13,7 +13,7 @@ import init, {
   generate_barcode_png as _barPng,
   generate_barcode_svg as _barSvg,
   generate_barcode_modules as _barModules,
-} from "./pkg/web/barqrcode.js";
+} from "./pkg/web/barqr.js";
 
 import {
   logoHref,
@@ -31,7 +31,7 @@ function ensureEncoder() {
 }
 
 function ensureDecoder() {
-  return (_decoderReady ??= import("./pkg/web-decode/barqrcode.js").then(async (mod) => {
+  return (_decoderReady ??= import("./pkg/web-decode/barqr.js").then(async (mod) => {
     await mod.default();
     return mod;
   }));
@@ -41,7 +41,7 @@ function ensureDecoder() {
 // costs roughly twice the QR-only decoder — which is exactly why it is separate:
 // a page that only scans QR codes should never fetch it.
 function ensureAnyDecoder() {
-  return (_anyDecoderReady ??= import("./pkg/web-decode-any/barqrcode.js").then(async (mod) => {
+  return (_anyDecoderReady ??= import("./pkg/web-decode-any/barqr.js").then(async (mod) => {
     await mod.default();
     return mod;
   }));
