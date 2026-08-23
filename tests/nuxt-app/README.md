@@ -14,7 +14,7 @@ failures do not happen here.
 # from the repo root
 npm run build && npm pack --ignore-scripts
 cd tests/nuxt-app
-npm install && npm install ../../barqr-0.6.0.tgz
+npm install && npm install ../../barqr-1.0.0.tgz
 npm run dev
 ```
 

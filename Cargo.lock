@@ -58,7 +58,7 @@ checksum = "a3826fb6e98ec72c0c0db8c9a40af4932d16793021027469857e84c1b50a1e8f"
 
 [[package]]
 name = "barqr"
-version = "0.6.0"
+version = "1.0.0"
 dependencies = [
  "barcoders",
  "criterion",

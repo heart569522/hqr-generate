@@ -13,7 +13,7 @@ import skips `exports` entirely and would prove nothing.
 # from the repo root
 npm run build && npm pack --ignore-scripts
 cd tests/my-app
-npm install && npm install ../../barqr-0.6.0.tgz
+npm install && npm install ../../barqr-1.0.0.tgz
 npm run dev
 ```
 

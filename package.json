@@ -1,6 +1,6 @@
 {
   "name": "barqr",
-  "version": "0.6.0",
+  "version": "1.0.0",
   "description": "High-performance QR code generator and decoder powered by Rust + WASM",
   "license": "MIT",
   "type": "module",

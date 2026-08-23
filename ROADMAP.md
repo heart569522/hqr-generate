@@ -46,15 +46,14 @@ Everything below was decided or built for this release. The reasoning lives in
 
 ## Before tagging
 
-Three of these need a person, and no amount of testing substitutes for them.
+The three that needed a person are done. Two mechanical steps remain.
 
-- [ ] **PromptPay against a real banking app.** The payload structure and its
-      CRC are covered and it round-trips through the decoder, but nothing
-      automated can confirm a bank accepts it. This is money.
-- [ ] **The scanner on real phone cameras**, iOS and Android. It is tested
-      against a canvas-backed `MediaStream`, which exercises every line of the
-      frame pump but not a sensor, an autofocus or a dim room.
-- [ ] **The maintainer's payment integration running on this API.**
+- [x] **PromptPay against a real banking app.** Confirmed by the maintainer.
+- [x] **The scanner on real phone cameras**, iOS and Android. Confirmed by the
+      maintainer. The automated coverage drives a canvas-backed `MediaStream`,
+      which exercises every line of the frame pump but not a sensor, an
+      autofocus or a dim room — so this one could only ever be checked by hand.
+- [x] **The maintainer's payment integration running on this API.**
 
 And two mechanical steps, in this order:
 
@@ -63,7 +62,7 @@ And two mechanical steps, in this order:
       the old repository name, so publishing fails until it is repointed — and
       it cannot be configured until the package exists.
 - [ ] **`npm version 1.0.0`, then tag.** Release notes are already written at
-      `.github/release-notes/v1.0.0.md`; they carry a `__NEW_PKG__` placeholder
+      `.github/release-notes/v1.0.0.md`; they carry a `barqr` placeholder
       that `scripts/rename.mjs` fills.
 
 ---

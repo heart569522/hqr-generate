@@ -1,6 +1,6 @@
 [package]
 name = "barqr"
-version = "0.6.0"
+version = "1.0.0"
 edition = "2024"
 rust-version = "1.88"
 description = "Fast, scan-reliable black/white QR code generator and decoder (PNG / SVG) powered by Rust + WASM"
